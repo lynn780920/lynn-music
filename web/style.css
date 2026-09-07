@@ -601,6 +601,51 @@ body {
   background: #181818;
 }
 
+/* 🌙 OLED 熄屏省電覆蓋層 */
+.blackout-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000000;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.blackout-content {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.25);
+  padding: 24px;
+}
+
+.blackout-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.35;
+}
+
+.blackout-status {
+  font-size: 14px;
+  color: rgba(0, 245, 212, 0.5);
+  margin-bottom: 16px;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blackout-tip {
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.22);
+}
+
 .hidden {
   display: none !important;
 }

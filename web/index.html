@@ -27,6 +27,7 @@
       </div>
       <div class="top-actions">
         <button id="btn-toggle-video" class="icon-btn" title="切換MV畫面">🎬</button>
+        <button id="btn-sleep-mode" class="icon-btn" title="🌙 熄屏省電聽歌模式">🌙</button>
         <button id="btn-queue-open" class="icon-btn" title="即將播放清單">📜</button>
         <button id="btn-fav-list-open" class="icon-btn" title="我的最愛">❤️</button>
         <button id="btn-playlists-open" class="icon-btn" title="自訂歌單">📂</button>
@@ -152,6 +153,15 @@
           在 Safari 點擊下方 <b>「分享」</b> ➜ 選擇 <b>「加入主畫面」</b>，即可全螢幕獨立運行！
         </div>
         <button id="btn-help-confirm" style="width: 100%; background: #00f5d4; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">我知道了！開始聽歌</button>
+      </div>
+    </div>
+
+    <!-- 🌙 熄屏省電聽歌覆蓋層 (OLED 真正純黑省電模式) -->
+    <div id="blackout-screen" class="blackout-screen hidden">
+      <div class="blackout-content">
+        <div class="blackout-icon">🌙</div>
+        <div class="blackout-status" id="blackout-song">正在播放音樂...</div>
+        <div class="blackout-tip">💡 螢幕已純黑省電運行，放進口袋不中斷<br>（點擊螢幕任意處喚醒介面）</div>
       </div>
     </div>
 

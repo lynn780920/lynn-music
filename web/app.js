@@ -14,25 +14,7 @@ class LynnMobilePlayer {
     this.favorites = this.loadFavorites();
     this.customPlaylists = this.loadCustomPlaylists();
     this.mode = 'RADIO'; // 'RADIO', 'SINGLE', 'LOOP'
-
-    // 🎧 iOS 背景播放與鎖定畫面控制常駐錨點
-    this.silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-    this.silentAudio.loop = true;
-
-    // iOS Safari 首次觸控解鎖音訊權限
-    const unlockAudio = () => {
-      if (this.silentAudio) {
-        this.silentAudio.play().then(() => {
-          if (!this.ytPlayer || (typeof this.ytPlayer.getPlayerState === 'function' && this.ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING)) {
-            this.silentAudio.pause();
-          }
-        }).catch(() => {});
-      }
-      document.removeEventListener('touchstart', unlockAudio);
-      document.removeEventListener('click', unlockAudio);
-    };
-    document.addEventListener('touchstart', unlockAudio, { once: true });
-    document.addEventListener('click', unlockAudio, { once: true });
+    this.wakeLock = null;
 
     this.initElements();
     this.initEventListeners();
@@ -75,6 +57,9 @@ class LynnMobilePlayer {
     this.elFavList = document.getElementById('fav-list');
     this.elFavCount = document.getElementById('fav-count');
     this.elToast = document.getElementById('toast');
+    this.elBtnSleepMode = document.getElementById('btn-sleep-mode');
+    this.elBlackoutScreen = document.getElementById('blackout-screen');
+    this.elBlackoutSong = document.getElementById('blackout-song');
   }
 
   initEventListeners() {
@@ -149,6 +134,34 @@ class LynnMobilePlayer {
       if (btnHelpClose) btnHelpClose.addEventListener('click', () => helpModal.classList.add('hidden'));
       if (btnHelpConfirm) btnHelpConfirm.addEventListener('click', () => helpModal.classList.add('hidden'));
     }
+
+    // 🌙 OLED 熄屏省電聽歌模式
+    if (this.elBtnSleepMode && this.elBlackoutScreen) {
+      this.elBtnSleepMode.addEventListener('click', () => this.enterSleepMode());
+      this.elBlackoutScreen.addEventListener('click', () => this.exitSleepMode());
+    }
+  }
+
+  async enterSleepMode() {
+    this.elBlackoutScreen.classList.remove('hidden');
+    if (this.currentSong) {
+      this.elBlackoutSong.textContent = `🎵 ${this.currentSong.title} - ${this.currentSong.artist}`;
+    }
+    this.showToast('🌙 已進入熄屏省電模式，點擊螢幕任意處可喚醒');
+    try {
+      if ('wakeLock' in navigator) {
+        this.wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (e) {}
+  }
+
+  exitSleepMode() {
+    this.elBlackoutScreen.classList.add('hidden');
+    if (this.wakeLock) {
+      this.wakeLock.release().catch(() => {});
+      this.wakeLock = null;
+    }
+    this.showToast('☀️ 已喚醒播放介面');
   }
 
   // ─── 🎬 YouTube 官方播放核心初始化 ───
@@ -197,16 +210,10 @@ class LynnMobilePlayer {
       if ('mediaSession' in navigator) {
         navigator.mediaSession.playbackState = 'playing';
       }
-      if (this.silentAudio) {
-        this.silentAudio.play().catch(() => {});
-      }
     } else if (e.data === YT.PlayerState.PAUSED) {
       this.elBtnPlay.textContent = '▶️';
       if ('mediaSession' in navigator) {
         navigator.mediaSession.playbackState = 'paused';
-      }
-      if (this.silentAudio) {
-        this.silentAudio.pause();
       }
     } else if (e.data === 5 /* CUED */ || e.data === -1 /* UNSTARTED */) {
       // 🌟 當新歌載入進入 CUED 或 UNSTARTED，立即自動播放，免去手動點 ▶️
@@ -230,14 +237,12 @@ class LynnMobilePlayer {
         if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
           this.ytPlayer.playVideo();
         }
-        if (this.silentAudio) this.silentAudio.play().catch(() => {});
         navigator.mediaSession.playbackState = 'playing';
       });
       navigator.mediaSession.setActionHandler('pause', () => {
         if (this.ytPlayer && typeof this.ytPlayer.pauseVideo === 'function') {
           this.ytPlayer.pauseVideo();
         }
-        if (this.silentAudio) this.silentAudio.pause();
         navigator.mediaSession.playbackState = 'paused';
       });
       navigator.mediaSession.setActionHandler('previoustrack', () => this.playPrev());
@@ -350,9 +355,6 @@ class LynnMobilePlayer {
           }
         }
       }, 600);
-      if (this.silentAudio) {
-        this.silentAudio.play().catch(() => {});
-      }
     } catch (e) {
       console.warn('播放影片發生異常', e);
     }
@@ -466,11 +468,9 @@ class LynnMobilePlayer {
     const state = this.ytPlayer.getPlayerState();
     if (state === YT.PlayerState.PLAYING) {
       this.ytPlayer.pauseVideo();
-      if (this.silentAudio) this.silentAudio.pause();
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
     } else {
       this.ytPlayer.playVideo();
-      if (this.silentAudio) this.silentAudio.play().catch(() => {});
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
     }
   }
