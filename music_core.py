@@ -125,54 +125,83 @@ class MusicAPI:
         raise RuntimeError(f"YouTube 串流解析失敗 ({last_error})")
 
     def radio(self, vid, artist='', title=''):
-        tracks = []
+        """
+        電台推薦歌曲產生器：
+        採用「歌手交錯輪播演算法 (Round-Robin Interleaving)」，
+        保證清單中絕不出現同一歌手連續排隊（杜絕整排都是同一歌手的情況）。
+        """
+        import collections
+        by_artist = collections.defaultdict(list)
+        seen_ids = {vid}
+
+        # 1. 嘗試由 YouTube Music get_watch_playlist 取得官方推薦
         try:
             data = self.yt.get_watch_playlist(vid)
             for i in data.get('tracks', []):
                 item_id = i.get('videoId')
-                if item_id and item_id != vid:
-                    tracks.append({
-                        'title': i.get('title', '未知歌曲'),
-                        'artist': i['artists'][0]['name'] if i.get('artists') else '未知歌手',
-                        'id': item_id
-                    })
+                if item_id and item_id not in seen_ids:
+                    art = i['artists'][0]['name'] if i.get('artists') else '未知歌手'
+                    # 每位歌手在候選池中最多保留 2 首，避免單一歌手壟斷
+                    if len(by_artist[art]) < 2:
+                        by_artist[art].append({
+                            'title': i.get('title', '未知歌曲'),
+                            'artist': art,
+                            'id': item_id
+                        })
+                        seen_ids.add(item_id)
         except Exception:
             pass
 
-        # 若 get_watch_playlist 失敗或筆數過少，使用歌手與推薦歌曲智慧補充
-        if len(tracks) < 5:
-            seen_ids = {vid} | {t['id'] for t in tracks}
-            search_terms = []
-            if artist and artist != '未知歌手':
-                search_terms.append(artist)
-            if title:
-                search_terms.append(title)
-            
-            # 加上華語熱門流行歌手隨機種子
-            popular_seeds = ['周杰倫', '五月天', '告五人', '鄧紫棋', '蔡依林', '林俊傑', '韋禮安', '張惠妹']
-            random.shuffle(popular_seeds)
-            search_terms.extend(popular_seeds[:3])
+        # 2. 若歌手多樣性不足（不同歌手少於 6 位），智慧補充熱門華語歌手歌曲
+        popular_pool = [
+            '周杰倫', '五月天', '告五人', '韋禮安', '鄧紫棋', 
+            '蔡依林', '林俊傑', '張惠妹', '陳奕迅', '孫燕姿', 
+            '梁靜茹', '田馥甄', '盧廣仲', '徐佳瑩', '莫文蔚',
+            '李榮浩', '八三夭', '理想混蛋', '動力火車', '落日飛車'
+        ]
+        random.shuffle(popular_pool)
+        
+        current_artists = set(by_artist.keys())
+        needed_count = max(0, 8 - len(current_artists))
+        supplement_artists = [a for a in popular_pool if a not in current_artists][:needed_count]
 
-            for term in search_terms:
-                try:
-                    results = self.yt.search(term, filter='songs')
-                    for item in results:
-                        item_id = item.get('videoId')
-                        if item_id and item_id not in seen_ids:
-                            tracks.append({
-                                'title': item.get('title', '未知歌曲'),
-                                'artist': item['artists'][0]['name'] if item.get('artists') else '未知歌手',
-                                'id': item_id
-                            })
-                            seen_ids.add(item_id)
-                        if len(tracks) >= 30:
+        for art in supplement_artists:
+            try:
+                results = self.yt.search(art, filter='songs')
+                added = 0
+                for item in results:
+                    item_id = item.get('videoId')
+                    if item_id and item_id not in seen_ids:
+                        by_artist[art].append({
+                            'title': item.get('title', '未知歌曲'),
+                            'artist': item['artists'][0]['name'] if item.get('artists') else art,
+                            'id': item_id
+                        })
+                        seen_ids.add(item_id)
+                        added += 1
+                        if added >= 2:
                             break
-                except Exception:
-                    pass
-                if len(tracks) >= 30:
-                    break
+            except Exception:
+                pass
 
-        return tracks
+        # 3. 歌手交錯輪播 (Round-Robin Interleaving)
+        # 依序從每一位歌手各取一首歌加入佇列，確保相鄰兩首歌絕對不會是同一位歌手
+        mixed = []
+        artist_keys = list(by_artist.keys())
+        random.shuffle(artist_keys)
+
+        # 若原曲歌手在清單中，優先作為輪播的開頭歌手（但只有 1 首，之後立即切換給下一位歌手）
+        if artist and artist in artist_keys:
+            artist_keys.remove(artist)
+            artist_keys.insert(0, artist)
+
+        max_len = max((len(v) for v in by_artist.values()), default=0)
+        for r in range(max_len):
+            for art in artist_keys:
+                if r < len(by_artist[art]):
+                    mixed.append(by_artist[art][r])
+
+        return mixed
 
     def lrclib(self, title, artist):
         def clean_text(text):

@@ -213,11 +213,18 @@ class LynnMobilePlayer {
 
   onYTStateChange(e) {
     if (e.data === YT.PlayerState.PLAYING) {
-      this.isSwitchingTrack = false;
       this.elBtnPlay.textContent = '⏸️';
       if ('mediaSession' in navigator) {
         navigator.mediaSession.playbackState = 'playing';
       }
+      // 給予緩衝防抖，避免 iOS 剛起播數毫秒又暫停時過早結束切歌守護狀態
+      clearTimeout(this.playingStabilizeTimer);
+      this.playingStabilizeTimer = setTimeout(() => {
+        if (this.ytPlayer && typeof this.ytPlayer.getPlayerState === 'function' && this.ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) {
+          this.isSwitchingTrack = false;
+          clearInterval(this.autoPlayInterval);
+        }
+      }, 800);
     } else if (e.data === YT.PlayerState.PAUSED) {
       // 🌟 切歌過渡期：若剛載入新歌，YouTube 會先短暫觸發 PAUSED，此時強制自動起播！
       if (this.isSwitchingTrack) {
@@ -232,8 +239,10 @@ class LynnMobilePlayer {
       }
     } else if (e.data === 5 /* CUED */ || e.data === -1 /* UNSTARTED */ || e.data === 3 /* BUFFERING */) {
       // 🌟 當新歌載入進入 CUED、BUFFERING 或 UNSTARTED，立即自動起播
-      if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
-        this.ytPlayer.playVideo();
+      if (this.isSwitchingTrack) {
+        if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
+          this.ytPlayer.playVideo();
+        }
       }
     } else if (e.data === YT.PlayerState.ENDED) {
       if (this.mode === 'SINGLE') {
@@ -255,6 +264,10 @@ class LynnMobilePlayer {
         navigator.mediaSession.playbackState = 'playing';
       });
       navigator.mediaSession.setActionHandler('pause', () => {
+        this.isSwitchingTrack = false;
+        clearInterval(this.autoPlayInterval);
+        clearTimeout(this.switchTrackTimeout);
+        clearTimeout(this.playingStabilizeTimer);
         if (this.ytPlayer && typeof this.ytPlayer.pauseVideo === 'function') {
           this.ytPlayer.pauseVideo();
         }
@@ -312,6 +325,7 @@ class LynnMobilePlayer {
       div.addEventListener('click', () => {
         this.elSearchResults.classList.add('hidden');
         this.elSearchInput.value = '';
+        this.queue = [];
         this.loadAndPlaySong(s);
       });
       this.elSearchResults.appendChild(div);
@@ -325,6 +339,7 @@ class LynnMobilePlayer {
       const res = await fetch(`/api/search?q=${encodeURIComponent(keyword)}`);
       const data = await res.json();
       if (data.song) {
+        this.queue = [];
         this.loadAndPlaySong(data.song);
       }
     } catch (e) {
@@ -339,6 +354,11 @@ class LynnMobilePlayer {
     }
 
     this.isSwitchingTrack = true;
+    clearTimeout(this.switchTrackTimeout);
+    this.switchTrackTimeout = setTimeout(() => {
+      this.isSwitchingTrack = false;
+      clearInterval(this.autoPlayInterval);
+    }, 4000);
 
     if (this.currentSong) {
       this.history.push(this.currentSong);
@@ -359,19 +379,28 @@ class LynnMobilePlayer {
         startSeconds: 0
       });
       this.ytPlayer.playVideo();
-      // 保險自動起播定時器，避免 iOS Safari 偶爾卡在載入階段
-      setTimeout(() => {
-        if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
-          this.ytPlayer.playVideo();
+
+      // 🌟 強化自動起播輪詢迴圈：每 200ms 檢查一次，未播放則強制 playVideo，持續 3.6 秒
+      clearInterval(this.autoPlayInterval);
+      let attempts = 0;
+      this.autoPlayInterval = setInterval(() => {
+        attempts++;
+        if (!this.ytPlayer || typeof this.ytPlayer.getPlayerState !== 'function') {
+          if (attempts > 18) clearInterval(this.autoPlayInterval);
+          return;
         }
-      }, 150);
-      setTimeout(() => {
-        if (this.ytPlayer && typeof this.ytPlayer.getPlayerState === 'function') {
-          if (this.ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING) {
+        const state = this.ytPlayer.getPlayerState();
+        if (state === YT.PlayerState.PLAYING) {
+          if (attempts > 3) clearInterval(this.autoPlayInterval);
+        } else {
+          try {
             this.ytPlayer.playVideo();
+          } catch (err) {}
+          if (attempts > 18) {
+            clearInterval(this.autoPlayInterval);
           }
         }
-      }, 600);
+      }, 200);
     } catch (e) {
       console.warn('播放影片發生異常', e);
     }
@@ -485,6 +514,9 @@ class LynnMobilePlayer {
     const state = this.ytPlayer.getPlayerState();
     if (state === YT.PlayerState.PLAYING) {
       this.isSwitchingTrack = false;
+      clearInterval(this.autoPlayInterval);
+      clearTimeout(this.switchTrackTimeout);
+      clearTimeout(this.playingStabilizeTimer);
       this.ytPlayer.pauseVideo();
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
     } else {
@@ -831,6 +863,17 @@ class LynnMobilePlayer {
     for (let i = this.queue.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [this.queue[i], this.queue[j]] = [this.queue[j], this.queue[i]];
+    }
+    // 隨機後若有連續相同歌手，智慧錯開
+    for (let i = 0; i < this.queue.length - 1; i++) {
+      if (this.queue[i].artist && this.queue[i].artist === this.queue[i+1].artist) {
+        for (let j = i + 2; j < this.queue.length; j++) {
+          if (this.queue[j].artist !== this.queue[i].artist) {
+            [this.queue[i+1], this.queue[j]] = [this.queue[j], this.queue[i+1]];
+            break;
+          }
+        }
+      }
     }
     this.renderQueueUI();
     this.showToast('🔀 佇列已打亂');
