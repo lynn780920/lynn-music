@@ -62,19 +62,19 @@ class MusicAPI:
             return []
 
     def stream(self, vid, song_title=None):
-        client_options = [
-            ['android', 'web'],
-            ['ios', 'mweb'],
-            ['android_creator', 'android'],
-            ['tv', 'web'],
-            ['mweb'],
-            ['web']
+        client_configs = [
+            {'player_client': ['android'], 'player_skip': ['webpage', 'configs']},
+            {'player_client': ['ios'], 'player_skip': ['webpage', 'configs']},
+            {'player_client': ['android_creator'], 'player_skip': ['webpage', 'configs']},
+            {'player_client': ['tv'], 'player_skip': ['webpage']},
+            {'player_client': ['android', 'web']},
+            {'player_client': ['web']}
         ]
 
         formats_to_try = ['bestaudio/best', 'ba/b', 'best']
 
         last_error = None
-        for clients in client_options:
+        for cfg in client_configs:
             for fmt in formats_to_try:
                 ydl_opts = {
                     'format': fmt,
@@ -83,10 +83,7 @@ class MusicAPI:
                     'nocheckcertificate': True,
                     'geo_bypass': True,
                     'extractor_args': {
-                        'youtube': {
-                            'player_client': clients,
-                            'skip': ['dash', 'hls'] if fmt == 'ba/b' else []
-                        }
+                        'youtube': cfg
                     },
                     'http_headers': self.base_headers
                 }
@@ -105,14 +102,14 @@ class MusicAPI:
                 print(f"原影片 ID {vid} 無法串流，嘗試為您搜尋替代影片: {song_title}")
                 alt = self.search_song(song_title)
                 if alt and alt['id'] != vid:
-                    for clients in client_options[:2]:
+                    for cfg in client_configs[:2]:
                         ydl_opts = {
                             'format': 'bestaudio/best',
                             'quiet': True,
                             'no_warnings': True,
                             'nocheckcertificate': True,
                             'geo_bypass': True,
-                            'extractor_args': {'youtube': {'player_client': clients}},
+                            'extractor_args': {'youtube': cfg},
                             'http_headers': self.base_headers
                         }
                         try:
