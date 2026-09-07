@@ -1,5 +1,26 @@
 // Lynn-music Mobile Cloud Web Player
 // 採用 YouTube 官方播放引擎 (100% 雲端運行、免開電腦、永不被機房封鎖)
+
+// 🌟 預載華語熱門流行歌手庫（100% 合法可播且歌手多元，確保 iOS 點擊下一首時 0 毫秒同步起播）
+const PRELOADED_TRACKS = [
+  { id: "SJKoWAd5ySo", title: "晴天", artist: "周杰倫" },
+  { id: "EopCPbEj1FA", title: "突然好想你", artist: "五月天" },
+  { id: "E52qnW59iEE", title: "愛人錯過", artist: "告五人" },
+  { id: "dozAVKrIBBM", title: "如果可以", artist: "韋禮安" },
+  { id: "f8IqVtY_4jo", title: "光年之外", artist: "鄧紫棋" },
+  { id: "USO9dqYJCH0", title: "倒帶", artist: "蔡依林" },
+  { id: "tjr3SrCg3pc", title: "十年", artist: "陳奕迅" },
+  { id: "BRir0qs538Q", title: "修煉愛情", artist: "林俊傑" },
+  { id: "bGRFDm7pW50", title: "遇見", artist: "孫燕姿" },
+  { id: "0IJGFoG3fII", title: "勇氣", artist: "梁靜茹" },
+  { id: "Pyyhy-gOKmE", title: "連名帶姓", artist: "張惠妹" },
+  { id: "YD9r_tTtlaA", title: "小幸運", artist: "田馥甄" },
+  { id: "56z2jipIwSQ", title: "刻在我心底的名字", artist: "盧廣仲" },
+  { id: "N-pB8z2PX1g", title: "身騎白馬", artist: "徐佳瑩" },
+  { id: "SKZY31NS-5Q", title: "年少有為", artist: "李榮浩" },
+  { id: "M2AygY4l_IY", title: "當", artist: "動力火車" }
+];
+
 class LynnMobilePlayer {
   constructor() {
     this.ytPlayer = null;
@@ -9,7 +30,15 @@ class LynnMobilePlayer {
     this.lastErrorTime = 0;
 
     this.currentSong = null;
-    this.queue = [];
+    // 預先打散預載池，保證開局每一首都是不同歌手
+    const initialPool = [...PRELOADED_TRACKS];
+    for (let i = initialPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [initialPool[i], initialPool[j]] = [initialPool[j], initialPool[i]];
+    }
+    const initialSong = initialPool.shift();
+    this.queue = initialPool;
+
     this.history = [];
     this.playedIds = new Set();
     this.lyrics = []; // [{ time: ms, text: '' }]
@@ -22,10 +51,8 @@ class LynnMobilePlayer {
     this.initEventListeners();
     this.initMediaSession();
 
-    // 預設點一首開場歌曲 (由雲端抓取合法可播放音軌)
-    const startSeeds = ['張惠妹 如果你也聽說', '周杰倫 說好不哭', '五月天 突然好想你', '蔡依林 倒帶', '陳奕迅 十年', '告五人 愛人錯過', '韋禮安 如果可以'];
-    const chosen = startSeeds[Math.floor(Math.random() * startSeeds.length)];
-    this.searchAndPlay(chosen);
+    // 開局立即載入首發歌曲 (零網路延遲，避免 Safari 因等待搜尋回應而封鎖自動播放)
+    this.loadAndPlaySong(initialSong);
   }
 
   initElements() {
@@ -325,7 +352,6 @@ class LynnMobilePlayer {
       div.addEventListener('click', () => {
         this.elSearchResults.classList.add('hidden');
         this.elSearchInput.value = '';
-        this.queue = [];
         this.loadAndPlaySong(s);
       });
       this.elSearchResults.appendChild(div);
@@ -339,7 +365,6 @@ class LynnMobilePlayer {
       const res = await fetch(`/api/search?q=${encodeURIComponent(keyword)}`);
       const data = await res.json();
       if (data.song) {
-        this.queue = [];
         this.loadAndPlaySong(data.song);
       }
     } catch (e) {
@@ -354,6 +379,7 @@ class LynnMobilePlayer {
     }
 
     this.isSwitchingTrack = true;
+    this.elBtnPlay.textContent = '⏸️';
     clearTimeout(this.switchTrackTimeout);
     this.switchTrackTimeout = setTimeout(() => {
       this.isSwitchingTrack = false;
@@ -374,10 +400,7 @@ class LynnMobilePlayer {
 
     // 1. 直接由手機原生調用 YouTube 官方播放 (免受機房封鎖)
     try {
-      this.ytPlayer.loadVideoById({
-        videoId: song.id,
-        startSeconds: 0
-      });
+      this.ytPlayer.loadVideoById(song.id, 0);
       this.ytPlayer.playVideo();
 
       // 🌟 強化自動起播輪詢迴圈：每 200ms 檢查一次，未播放則強制 playVideo，持續 3.6 秒
@@ -454,14 +477,20 @@ class LynnMobilePlayer {
       const data = await res.json();
       if (data.tracks && data.tracks.length > 0) {
         const existingIds = new Set(this.queue.map(s => s.id));
+        if (this.currentSong) existingIds.add(this.currentSong.id);
+        const newTracks = [];
         data.tracks.forEach(t => {
           if (!this.playedIds.has(t.id) && !existingIds.has(t.id)) {
-            this.queue.push(t);
+            newTracks.push(t);
             existingIds.add(t.id);
           }
         });
-        if (this.queue.length > 50) this.queue = this.queue.slice(0, 50);
-        this.renderQueueUI();
+        if (newTracks.length > 0) {
+          // 將最新取得的交錯電台推薦插入佇列前端，保留原本歌曲作為備用緩衝
+          this.queue = [...newTracks, ...this.queue];
+          if (this.queue.length > 50) this.queue = this.queue.slice(0, 50);
+          this.renderQueueUI();
+        }
       }
     } catch (e) {
       console.log('取得電台失敗', e);
@@ -531,15 +560,19 @@ class LynnMobilePlayer {
       this.queue.push(this.currentSong);
     }
 
-    if (this.queue.length > 0) {
-      const next = this.queue.shift();
-      this.renderQueueUI();
-      this.loadAndPlaySong(next);
-    } else {
-      const fallbackSeeds = ['張惠妹 如果你也聽說', '周杰倫 晴天', '五月天 突然好想你', '蔡依林 倒帶', '陳奕迅 十年', '告五人 愛人錯過', '韋禮安 如果可以', '鄧紫棋 光年之外'];
-      const chosen = fallbackSeeds[Math.floor(Math.random() * fallbackSeeds.length)];
-      this.searchAndPlay(chosen);
+    // 若佇列空了，立即從預載清單重新補充，保證點擊「下一首」100% 同步執行（絕不等待非同步網路，避免 iOS Safari 丟失手勢起播權限）
+    if (this.queue.length === 0) {
+      const refill = [...PRELOADED_TRACKS];
+      for (let i = refill.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [refill[i], refill[j]] = [refill[j], refill[i]];
+      }
+      this.queue = refill;
     }
+
+    const next = this.queue.shift();
+    this.renderQueueUI();
+    this.loadAndPlaySong(next);
   }
 
   playPrev() {
