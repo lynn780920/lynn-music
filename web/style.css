@@ -209,15 +209,14 @@ body {
   border: 1px solid #333;
 }
 
-/* 🌟 iOS Safari 核心相容：純歌詞/隱藏畫面時，不可使用 display: none，否則 Safari WebKit 會凍結 iframe 音訊串流與阻擋自動播放！ */
+/* 🌟 iOS Safari 核心相容：隱藏 MV 畫面時以折疊取代 display: none，保持音訊活躍且不觸發 iOS 防廣告影片機制 */
 .video-wrapper.hidden {
   display: block !important;
-  position: absolute !important;
-  top: -9999px !important;
-  left: -9999px !important;
-  width: 1px !important;
-  height: 1px !important;
-  opacity: 0.001 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  opacity: 0 !important;
   pointer-events: none !important;
 }
 

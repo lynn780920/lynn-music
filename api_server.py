@@ -127,13 +127,14 @@ class LynnRequestHandler(SimpleHTTPRequestHandler):
 
     def handle_trending(self):
         try:
-            trending_keywords = [
-                '華語流行熱歌', '最新熱門單曲', '華語熱播榜', 
-                '華語人氣新歌', '台灣流行熱榜', '華語KTV熱唱', 
-                '華語必聽好歌', '獨立流行精選'
+            curated_artists = [
+                '周杰倫', '告五人', '韋禮安', '五月天', '鄧紫棋', 
+                '蔡依林', '林俊傑', '張惠妹', '陳奕迅', '孫燕姿', 
+                '梁靜茹', '田馥甄', '盧廣仲', '徐佳瑩', '莫文蔚',
+                '李榮浩', '伍佰', '八三夭', '理想混蛋', '動力火車'
             ]
-            kw = random.choice(trending_keywords)
-            results = api_engine.search_multi(kw, limit=20)
+            artist = random.choice(curated_artists)
+            results = api_engine.search_multi(artist, limit=15)
             self.send_json({'tracks': results})
         except Exception as e:
             self.send_json({'tracks': []})

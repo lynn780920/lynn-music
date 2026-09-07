@@ -26,6 +26,16 @@ class MusicAPI:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
         }
 
+    @staticmethod
+    def is_spam_title(title):
+        bad_keywords = [
+            '最好听', '最好聽', '合輯', '合集', '串燒', '串烧',
+            '首催淚', '首催泪', '首傷感', '首伤感', '連續播放', '连续播放',
+            '精選輯', '精选集', '小時', '小时', '必聽', '熱門榜', '排行榜',
+            '催淚傷感', '伤感情歌', '情歌精選'
+        ]
+        return any(k in title for k in bad_keywords)
+
     def search_song(self, text):
         try:
             r = self.yt.search(text, filter='songs')
@@ -33,6 +43,13 @@ class MusicAPI:
                 r = self.yt.search(text, filter='videos')
             if not r:
                 return None
+            for s in r:
+                if not self.is_spam_title(s.get('title', '')):
+                    return {
+                        'id': s['videoId'],
+                        'title': s['title'],
+                        'artist': s['artists'][0]['name'] if s.get('artists') else '未知歌手'
+                    }
             s = r[0]
             return {
                 'id': s['videoId'],
@@ -49,13 +66,18 @@ class MusicAPI:
             r = self.yt.search(text, filter='songs')
             if not r:
                 r = self.yt.search(text, filter='videos')
-            for item in r[:limit]:
+            for item in r:
                 if 'videoId' in item:
+                    title = item.get('title', '未知曲名')
+                    if self.is_spam_title(title):
+                        continue
                     results.append({
                         'id': item['videoId'],
-                        'title': item.get('title', '未知曲名'),
+                        'title': title,
                         'artist': item['artists'][0]['name'] if item.get('artists') else '未知歌手'
                     })
+                    if len(results) >= limit:
+                        break
             return results
         except Exception as e:
             print(f"多筆搜尋失敗: {e}")
