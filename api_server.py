@@ -43,6 +43,8 @@ class LynnRequestHandler(SimpleHTTPRequestHandler):
         # ─── 🌐 API 路由分流 ───
         if path == '/api/search':
             self.handle_search(query)
+        elif path == '/api/trending':
+            self.handle_trending()
         elif path == '/api/stream':
             self.handle_stream(query)
         elif path == '/api/radio':
@@ -122,6 +124,19 @@ class LynnRequestHandler(SimpleHTTPRequestHandler):
 
         lyrics = api_engine.lrclib(title, artist)
         self.send_json({'lyrics': lyrics})
+
+    def handle_trending(self):
+        try:
+            trending_keywords = [
+                '華語流行熱歌', '最新熱門單曲', '華語熱播榜', 
+                '華語人氣新歌', '台灣流行熱榜', '華語KTV熱唱', 
+                '華語必聽好歌', '獨立流行精選'
+            ]
+            kw = random.choice(trending_keywords)
+            results = api_engine.search_multi(kw, limit=20)
+            self.send_json({'tracks': results})
+        except Exception as e:
+            self.send_json({'tracks': []})
 
 def get_local_ip():
     try:

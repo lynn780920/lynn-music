@@ -1,25 +1,5 @@
 // Lynn-music Mobile Cloud Web Player
-// 採用 YouTube 官方播放引擎 (100% 雲端運行、免開電腦、永不被機房封鎖)
-
-// 🌟 預載華語熱門流行歌手庫（100% 合法可播且歌手多元，確保 iOS 點擊下一首時 0 毫秒同步起播）
-const PRELOADED_TRACKS = [
-  { id: "SJKoWAd5ySo", title: "晴天", artist: "周杰倫" },
-  { id: "EopCPbEj1FA", title: "突然好想你", artist: "五月天" },
-  { id: "E52qnW59iEE", title: "愛人錯過", artist: "告五人" },
-  { id: "dozAVKrIBBM", title: "如果可以", artist: "韋禮安" },
-  { id: "f8IqVtY_4jo", title: "光年之外", artist: "鄧紫棋" },
-  { id: "USO9dqYJCH0", title: "倒帶", artist: "蔡依林" },
-  { id: "tjr3SrCg3pc", title: "十年", artist: "陳奕迅" },
-  { id: "BRir0qs538Q", title: "修煉愛情", artist: "林俊傑" },
-  { id: "bGRFDm7pW50", title: "遇見", artist: "孫燕姿" },
-  { id: "0IJGFoG3fII", title: "勇氣", artist: "梁靜茹" },
-  { id: "Pyyhy-gOKmE", title: "連名帶姓", artist: "張惠妹" },
-  { id: "YD9r_tTtlaA", title: "小幸運", artist: "田馥甄" },
-  { id: "56z2jipIwSQ", title: "刻在我心底的名字", artist: "盧廣仲" },
-  { id: "N-pB8z2PX1g", title: "身騎白馬", artist: "徐佳瑩" },
-  { id: "SKZY31NS-5Q", title: "年少有為", artist: "李榮浩" },
-  { id: "M2AygY4l_IY", title: "當", artist: "動力火車" }
-];
+// 採用 YouTube 官方播放引擎 (100% 雲端動態運行、免開電腦、永不被機房封鎖)
 
 class LynnMobilePlayer {
   constructor() {
@@ -30,15 +10,7 @@ class LynnMobilePlayer {
     this.lastErrorTime = 0;
 
     this.currentSong = null;
-    // 預先打散預載池，保證開局每一首都是不同歌手
-    const initialPool = [...PRELOADED_TRACKS];
-    for (let i = initialPool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [initialPool[i], initialPool[j]] = [initialPool[j], initialPool[i]];
-    }
-    const initialSong = initialPool.shift();
-    this.queue = initialPool;
-
+    this.queue = [];
     this.history = [];
     this.playedIds = new Set();
     this.lyrics = []; // [{ time: ms, text: '' }]
@@ -51,8 +23,31 @@ class LynnMobilePlayer {
     this.initEventListeners();
     this.initMediaSession();
 
-    // 開局立即載入首發歌曲 (零網路延遲，避免 Safari 因等待搜尋回應而封鎖自動播放)
-    this.loadAndPlaySong(initialSong);
+    // 🌟 100% 雲端動態開局：每次開啟都向雲端取得最新熱門/隨機推薦，絕不重複固定歌單
+    this.initDynamicTrending();
+  }
+
+  async initDynamicTrending() {
+    try {
+      this.elSongTitle.textContent = '🎵 正在連接雲端推薦曲庫...';
+      const res = await fetch('/api/trending');
+      const data = await res.json();
+      if (data.tracks && data.tracks.length > 0) {
+        const tracks = data.tracks;
+        for (let i = tracks.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
+        }
+        const startSong = tracks.shift();
+        this.queue = tracks;
+        this.renderQueueUI();
+        this.loadAndPlaySong(startSong);
+        return;
+      }
+    } catch (e) {
+      console.warn('動態開局載入失敗，採用後備搜尋', e);
+    }
+    this.searchAndPlay('華語流行熱歌');
   }
 
   initElements() {
@@ -560,19 +555,19 @@ class LynnMobilePlayer {
       this.queue.push(this.currentSong);
     }
 
-    // 若佇列空了，立即從預載清單重新補充，保證點擊「下一首」100% 同步執行（絕不等待非同步網路，避免 iOS Safari 丟失手勢起播權限）
-    if (this.queue.length === 0) {
-      const refill = [...PRELOADED_TRACKS];
-      for (let i = refill.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [refill[i], refill[j]] = [refill[j], refill[i]];
-      }
-      this.queue = refill;
-    }
+    if (this.queue.length > 0) {
+      const next = this.queue.shift();
+      this.renderQueueUI();
+      this.loadAndPlaySong(next);
 
-    const next = this.queue.shift();
-    this.renderQueueUI();
-    this.loadAndPlaySong(next);
+      // 當佇列剩餘不到 4 首時，提前在背景向雲端補充新電台，保證歌單永不間斷
+      if (this.queue.length < 4 && this.mode === 'RADIO') {
+        this.fetchRadioQueue(next.id, next.artist, next.title);
+      }
+    } else {
+      // 萬一佇列空了，即時向雲端補充動態推薦歌曲
+      this.initDynamicTrending();
+    }
   }
 
   playPrev() {

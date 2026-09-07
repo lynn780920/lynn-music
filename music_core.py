@@ -152,34 +152,26 @@ class MusicAPI:
         except Exception:
             pass
 
-        # 2. 若歌手多樣性不足（不同歌手少於 8 位），立即由高速熱門歌手庫智慧補充（零延遲秒開）
-        popular_fallback = [
-            {'artist': '周杰倫', 'title': '晴天', 'id': 'SJKoWAd5ySo'},
-            {'artist': '五月天', 'title': '突然好想你', 'id': 'EopCPbEj1FA'},
-            {'artist': '告五人', 'title': '愛人錯過', 'id': 'E52qnW59iEE'},
-            {'artist': '韋禮安', 'title': '如果可以', 'id': 'dozAVKrIBBM'},
-            {'artist': '鄧紫棋', 'title': '光年之外', 'id': 'f8IqVtY_4jo'},
-            {'artist': '蔡依林', 'title': '倒帶', 'id': 'USO9dqYJCH0'},
-            {'artist': '陳奕迅', 'title': '十年', 'id': 'tjr3SrCg3pc'},
-            {'artist': '林俊傑', 'title': '修煉愛情', 'id': 'BRir0qs538Q'},
-            {'artist': '孫燕姿', 'title': '遇見', 'id': 'bGRFDm7pW50'},
-            {'artist': '梁靜茹', 'title': '勇氣', 'id': '0IJGFoG3fII'},
-            {'artist': '張惠妹', 'title': '連名帶姓', 'id': 'Pyyhy-gOKmE'},
-            {'artist': '田馥甄', 'title': '小幸運', 'id': 'YD9r_tTtlaA'},
-            {'artist': '盧廣仲', 'title': '刻在我心底的名字', 'id': '56z2jipIwSQ'},
-            {'artist': '徐佳瑩', 'title': '身騎白馬', 'id': 'N-pB8z2PX1g'},
-            {'artist': '李榮浩', 'title': '年少有為', 'id': 'SKZY31NS-5Q'},
-            {'artist': '動力火車', 'title': '當', 'id': 'M2AygY4l_IY'}
-        ]
-        random.shuffle(popular_fallback)
-        
-        current_artists = set(by_artist.keys())
-        for item in popular_fallback:
-            if item['artist'] not in current_artists and item['id'] not in seen_ids:
-                by_artist[item['artist']].append(item)
-                seen_ids.add(item['id'])
-                if len(by_artist.keys()) >= 10:
-                    break
+        # 2. 若推薦筆數或歌手多樣性不足（少於 5 位不同歌手），即時動態向 YouTube 搜尋補足
+        if len(by_artist.keys()) < 5:
+            try:
+                supp_query = f"{artist} 相關" if (artist and artist != '未知歌手') else "華語流行熱歌"
+                results = self.yt.search(supp_query, filter='songs')
+                for item in results:
+                    item_id = item.get('videoId')
+                    if item_id and item_id not in seen_ids:
+                        art = item['artists'][0]['name'] if item.get('artists') else '未知歌手'
+                        if len(by_artist[art]) < 2:
+                            by_artist[art].append({
+                                'title': item.get('title', '未知歌曲'),
+                                'artist': art,
+                                'id': item_id
+                            })
+                            seen_ids.add(item_id)
+                        if len(by_artist.keys()) >= 8:
+                            break
+            except Exception:
+                pass
 
         # 3. 歌手交錯輪播 (Round-Robin Interleaving)
         # 依序從每一位歌手各取一首歌加入佇列，確保相鄰兩首歌絕對不會是同一位歌手
