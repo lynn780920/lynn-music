@@ -10,3 +10,4 @@ my_favorites.txt
 playlist.json
 .env
 .vscode/
+cloudflared.exe

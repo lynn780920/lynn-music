@@ -1,7 +1,11 @@
-// Lynn-music Mobile Web Player
+// Lynn-music Mobile Cloud Web Player
+// 採用 YouTube 官方播放引擎 (100% 雲端運行、免開電腦、永不被機房封鎖)
 class LynnMobilePlayer {
   constructor() {
-    this.audio = document.getElementById('audio-player');
+    this.ytPlayer = null;
+    this.isYTReady = false;
+    this.pendingSong = null;
+
     this.currentSong = null;
     this.queue = [];
     this.history = [];
@@ -10,7 +14,6 @@ class LynnMobilePlayer {
     this.favorites = this.loadFavorites();
     this.customPlaylists = this.loadCustomPlaylists();
     this.mode = 'RADIO'; // 'RADIO', 'SINGLE', 'LOOP'
-    this.nextPreloadedStream = null;
 
     this.initElements();
     this.initEventListeners();
@@ -33,6 +36,8 @@ class LynnMobilePlayer {
     this.elNewPlaylistName = document.getElementById('new-playlist-name');
     this.elBtnCreatePlaylistConfirm = document.getElementById('btn-create-playlist-confirm');
     this.elModalPlaylistOptions = document.getElementById('modal-playlist-options');
+    this.elVideoWrapper = document.getElementById('video-wrapper');
+    this.elBtnToggleVideo = document.getElementById('btn-toggle-video');
 
     this.elLyricsScroller = document.getElementById('lyrics-scroller');
     this.elProgressBar = document.getElementById('progress-bar');
@@ -62,22 +67,24 @@ class LynnMobilePlayer {
     // 播放模式切換
     this.elBtnMode.addEventListener('click', () => this.toggleMode());
 
+    // 切換 MV 畫面與純歌詞模式
+    if (this.elBtnToggleVideo) {
+      this.elBtnToggleVideo.addEventListener('click', () => {
+        this.elVideoWrapper.classList.toggle('hidden');
+        const isHidden = this.elVideoWrapper.classList.contains('hidden');
+        this.elBtnToggleVideo.textContent = isHidden ? '🎬' : '📝';
+        this.showToast(isHidden ? '切換至：純歌詞大字模式' : '切換至：MV影音畫面模式');
+      });
+    }
+
     // 進度條拖曳
     this.elProgressBar.addEventListener('input', (e) => {
-      if (this.audio.duration) {
-        this.audio.currentTime = (e.target.value / 100) * this.audio.duration;
+      if (this.ytPlayer && typeof this.ytPlayer.getDuration === 'function') {
+        const dur = this.ytPlayer.getDuration();
+        if (dur > 0) {
+          this.ytPlayer.seekTo((e.target.value / 100) * dur, true);
+        }
       }
-    });
-
-    // Audio 播放事件
-    this.audio.addEventListener('timeupdate', () => this.onTimeUpdate());
-    this.audio.addEventListener('ended', () => this.onSongEnded());
-    this.audio.addEventListener('play', () => { this.elBtnPlay.textContent = '⏸️'; });
-    this.audio.addEventListener('pause', () => { this.elBtnPlay.textContent = '▶️'; });
-    this.audio.addEventListener('error', (e) => {
-      console.warn('音訊載入遇到錯誤，嘗試切換下一首...', e);
-      this.showToast('⚠️ 串流錯誤，自動播下一首');
-      setTimeout(() => this.playNext(), 1500);
     });
 
     // 我的最愛開關
@@ -113,11 +120,59 @@ class LynnMobilePlayer {
     });
   }
 
+  // ─── 🎬 YouTube 官方播放核心初始化 ───
+  initYTPlayer() {
+    this.ytPlayer = new YT.Player('yt-player', {
+      height: '100%',
+      width: '100%',
+      playerVars: {
+        'autoplay': 1,
+        'playsinline': 1,
+        'controls': 1,
+        'rel': 0,
+        'modestbranding': 1
+      },
+      events: {
+        'onReady': () => {
+          this.isYTReady = true;
+          if (this.pendingSong) {
+            this.loadAndPlaySong(this.pendingSong);
+            this.pendingSong = null;
+          }
+        },
+        'onStateChange': (e) => this.onYTStateChange(e),
+        'onError': (e) => {
+          console.warn('YouTube 播放器報錯，自動跳下一首', e);
+          this.showToast('⚠️ 播放受限，自動播下一首');
+          setTimeout(() => this.playNext(), 1500);
+        }
+      }
+    });
+
+    // 啟動即時同步定時器
+    setInterval(() => this.onTimeUpdate(), 200);
+  }
+
+  onYTStateChange(e) {
+    if (e.data === YT.PlayerState.PLAYING) {
+      this.elBtnPlay.textContent = '⏸️';
+    } else if (e.data === YT.PlayerState.PAUSED) {
+      this.elBtnPlay.textContent = '▶️';
+    } else if (e.data === YT.PlayerState.ENDED) {
+      if (this.mode === 'SINGLE') {
+        this.ytPlayer.seekTo(0);
+        this.ytPlayer.playVideo();
+      } else {
+        this.playNext();
+      }
+    }
+  }
+
   // ─── 🎧 iOS 鎖定畫面與後台多媒體控制 ───
   initMediaSession() {
     if ('mediaSession' in navigator) {
-      navigator.mediaSession.setActionHandler('play', () => this.audio.play());
-      navigator.mediaSession.setActionHandler('pause', () => this.audio.pause());
+      navigator.mediaSession.setActionHandler('play', () => this.togglePlay());
+      navigator.mediaSession.setActionHandler('pause', () => this.togglePlay());
       navigator.mediaSession.setActionHandler('previoustrack', () => this.playPrev());
       navigator.mediaSession.setActionHandler('nexttrack', () => this.playNext());
     }
@@ -186,7 +241,12 @@ class LynnMobilePlayer {
     }
   }
 
-  async loadAndPlaySong(song) {
+  loadAndPlaySong(song) {
+    if (!this.isYTReady) {
+      this.pendingSong = song;
+      return;
+    }
+
     if (this.currentSong) {
       this.history.push(this.currentSong);
     }
@@ -197,22 +257,14 @@ class LynnMobilePlayer {
     this.elSongArtist.textContent = song.artist;
     this.updateFavButtonUI();
     this.updateMediaSession(song.title, song.artist);
-    this.renderLyricsPlaceholder('⚡ 正在載入動態歌詞與音樂串流...');
+    this.renderLyricsPlaceholder('⚡ 正在載入動態歌詞與音樂...');
 
-    // 1. 取得音訊串流網址
+    // 1. 直接由手機原生調用 YouTube 官方播放 (免受機房封鎖)
     try {
-      const streamRes = await fetch(`/api/stream?vid=${song.id}&title=${encodeURIComponent(song.title + ' ' + song.artist)}`);
-      const streamData = await streamRes.json();
-      if (streamData.url) {
-        this.audio.src = streamData.url;
-        this.audio.play().catch(() => console.log('Autoplay blocked until user interaction'));
-      } else {
-        throw new Error('無效音訊網址');
-      }
+      this.ytPlayer.loadVideoById(song.id);
+      this.ytPlayer.playVideo();
     } catch (e) {
-      this.showToast('⚠️ 解析音訊失敗，切換下一首');
-      setTimeout(() => this.playNext(), 1500);
-      return;
+      console.warn('播放影片發生異常', e);
     }
 
     // 2. 平行非同步取得動態歌詞
@@ -239,7 +291,6 @@ class LynnMobilePlayer {
   }
 
   parseLyrics(rawLyrics) {
-    // rawLyrics: { "12000": "第一句歌詞", "15000": "第二句" }
     this.lyrics = Object.entries(rawLyrics)
       .map(([time, text]) => ({ time: parseInt(time), text }))
       .sort((a, b) => a.time - b.time);
@@ -264,7 +315,6 @@ class LynnMobilePlayer {
       const res = await fetch(`/api/radio?vid=${vid}`);
       const data = await res.json();
       if (data.tracks && data.tracks.length > 0) {
-        // 過濾已播放與現有佇列
         const existingIds = new Set(this.queue.map(s => s.id));
         data.tracks.forEach(t => {
           if (!this.playedIds.has(t.id) && !existingIds.has(t.id)) {
@@ -282,24 +332,16 @@ class LynnMobilePlayer {
 
   // ─── ⏰ 播放更新與動態歌詞捲動 ───
   onTimeUpdate() {
-    if (!this.audio.duration) return;
+    if (!this.ytPlayer || typeof this.ytPlayer.getCurrentTime !== 'function') return;
 
-    const cur = this.audio.currentTime;
-    const dur = this.audio.duration;
+    const cur = this.ytPlayer.getCurrentTime() || 0;
+    const dur = this.ytPlayer.getDuration() || 0;
 
-    // 更新進度條與時間標籤
-    const pct = (cur / dur) * 100;
-    this.elProgressBar.value = pct;
-    this.elCurrentTime.textContent = this.formatTime(cur);
-    this.elTotalTime.textContent = this.formatTime(dur);
-
-    // 智慧鎖屏換歌預先快取：當播到 85% 時，預先向後端請求下一首串流網址
-    if (pct > 85 && !this.nextPreloadedStream && this.queue.length > 0) {
-      const nextSong = this.queue[0];
-      fetch(`/api/stream?vid=${nextSong.id}&title=${encodeURIComponent(nextSong.title + ' ' + nextSong.artist)}`)
-        .then(r => r.json())
-        .then(data => { if (data.url) this.nextPreloadedStream = data.url; })
-        .catch(() => {});
+    if (dur > 0) {
+      const pct = (cur / dur) * 100;
+      this.elProgressBar.value = pct;
+      this.elCurrentTime.textContent = this.formatTime(cur);
+      this.elTotalTime.textContent = this.formatTime(dur);
     }
 
     // 更新動態歌詞高亮
@@ -329,25 +371,17 @@ class LynnMobilePlayer {
     }
   }
 
-  onSongEnded() {
-    if (this.mode === 'SINGLE') {
-      this.audio.currentTime = 0;
-      this.audio.play();
-    } else {
-      this.playNext();
-    }
-  }
-
   togglePlay() {
-    if (this.audio.paused) {
-      this.audio.play();
+    if (!this.ytPlayer || typeof this.ytPlayer.getPlayerState !== 'function') return;
+    const state = this.ytPlayer.getPlayerState();
+    if (state === YT.PlayerState.PLAYING) {
+      this.ytPlayer.pauseVideo();
     } else {
-      this.audio.pause();
+      this.ytPlayer.playVideo();
     }
   }
 
   playNext() {
-    this.nextPreloadedStream = null;
     if (this.queue.length > 0) {
       const next = this.queue.shift();
       this.renderQueueUI();
@@ -386,7 +420,7 @@ class LynnMobilePlayer {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  // ─── ❤️ 我的最愛 (localStorage) ───
+  // ─── ❤️ 我的最愛 (localStorage: lynn_favorites) ───
   loadFavorites() {
     try {
       const data = localStorage.getItem('lynn_favorites');
@@ -426,6 +460,38 @@ class LynnMobilePlayer {
       return;
     }
     this.elFavToggle.textContent = this.isFavorite(this.currentSong.id) ? '❤️' : '🤍';
+  }
+
+  openFavDrawer() {
+    this.elFavList.innerHTML = '';
+    this.elFavCount.textContent = this.favorites.length;
+    if (this.favorites.length === 0) {
+      this.elFavList.innerHTML = '<p style="text-align:center; color:#777; margin-top:30px;">尚無收藏歌曲</p>';
+    } else {
+      this.favorites.forEach((song, idx) => {
+        const item = document.createElement('div');
+        item.className = 'list-item';
+        item.innerHTML = `
+          <div class="list-item-info">
+            <div class="list-item-title">${song.title}</div>
+            <div class="list-item-artist">${song.artist}</div>
+          </div>
+          <button class="list-item-del" title="刪除">🗑️</button>
+        `;
+        item.querySelector('.list-item-info').addEventListener('click', () => {
+          this.elFavDrawer.classList.add('hidden');
+          this.loadAndPlaySong(song);
+        });
+        item.querySelector('.list-item-del').addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.favorites.splice(idx, 1);
+          this.saveFavorites();
+          this.openFavDrawer();
+        });
+        this.elFavList.appendChild(item);
+      });
+    }
+    this.elFavDrawer.classList.remove('hidden');
   }
 
   // ─── 📂 自訂歌單 (localStorage: lynn_custom_playlists) ───
@@ -599,38 +665,6 @@ class LynnMobilePlayer {
     });
   }
 
-  openFavDrawer() {
-    this.elFavList.innerHTML = '';
-    this.elFavCount.textContent = this.favorites.length;
-    if (this.favorites.length === 0) {
-      this.elFavList.innerHTML = '<p style="text-align:center; color:#777; margin-top:30px;">尚無收藏歌曲</p>';
-    } else {
-      this.favorites.forEach((song, idx) => {
-        const item = document.createElement('div');
-        item.className = 'list-item';
-        item.innerHTML = `
-          <div class="list-item-info">
-            <div class="list-item-title">${song.title}</div>
-            <div class="list-item-artist">${song.artist}</div>
-          </div>
-          <button class="list-item-del" title="刪除">🗑️</button>
-        `;
-        item.querySelector('.list-item-info').addEventListener('click', () => {
-          this.elFavDrawer.classList.add('hidden');
-          this.loadAndPlaySong(song);
-        });
-        item.querySelector('.list-item-del').addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.favorites.splice(idx, 1);
-          this.saveFavorites();
-          this.openFavDrawer();
-        });
-        this.elFavList.appendChild(item);
-      });
-    }
-    this.elFavDrawer.classList.remove('hidden');
-  }
-
   // ─── 📜 即將播放佇列 ───
   openQueueDrawer() {
     this.renderQueueUI();
@@ -686,7 +720,20 @@ class LynnMobilePlayer {
   }
 }
 
-// 啟動播放器
+// ─── 全域啟動 ───
+window.player = null;
+window.isYTAPIReady = false;
+
+window.onYouTubeIframeAPIReady = function() {
+  window.isYTAPIReady = true;
+  if (window.player && !window.player.ytPlayer) {
+    window.player.initYTPlayer();
+  }
+};
+
 window.addEventListener('DOMContentLoaded', () => {
   window.player = new LynnMobilePlayer();
+  if (window.isYTAPIReady || (window.YT && window.YT.Player)) {
+    window.player.initYTPlayer();
+  }
 });

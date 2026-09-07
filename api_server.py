@@ -131,6 +131,48 @@ def get_local_ip():
     except:
         return '127.0.0.1'
 
+import subprocess
+import threading
+import re
+
+def launch_cloudflare_tunnel(port):
+    exe_path = os.path.join(BASE_DIR, 'cloudflared.exe')
+    if not os.path.exists(exe_path):
+        return None
+
+    try:
+        proc = subprocess.Popen(
+            [exe_path, 'tunnel', '--url', f'http://127.0.0.1:{port}'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            bufsize=1
+        )
+
+        def reader():
+            url_found = False
+            for line in proc.stdout:
+                if 'trycloudflare.com' in line and not url_found:
+                    m = re.search(r'https://[a-zA-Z0-9-]+\.trycloudflare\.com', line)
+                    if m:
+                        url_found = True
+                        print("\n" + "=" * 62)
+                        print("🎉 Cloudflare 全球專屬外網網址已就緒！(4G / 5G / 戶外專用)")
+                        print("=" * 62)
+                        print(f"📱 出門在外 iPhone 專屬連線網址:")
+                        print(f"   👉  {m.group(0)}  👈")
+                        print("=" * 62)
+                        print("💡 用手機 Safari 開啟上方網址，加入主畫面即可隨身聽歌！\n")
+
+        t = threading.Thread(target=reader, daemon=True)
+        t.start()
+        return proc
+    except Exception as e:
+        print("無法啟動 Cloudflare Tunnel:", e)
+        return None
+
 def main():
     port = int(os.environ.get('PORT', 8888))
     local_ip = get_local_ip()
@@ -138,23 +180,23 @@ def main():
     server_address = ('0.0.0.0', port)
     httpd = ThreadingHTTPServer(server_address, LynnRequestHandler)
 
-    print("\n" + "=" * 55)
+    print("\n" + "=" * 62)
     print("🚀 Lynn-music 手機版伺服器已成功啟動！")
-    print("=" * 55)
+    print("=" * 62)
     print(f"💻 電腦本機測試網址:  http://localhost:{port}")
-    print(f"📱 iPhone 手機開啟網址: http://{local_ip}:{port}")
-    print("=" * 55)
-    print("💡 使用方式：")
-    print(f"1. 請確保手機與電腦連在同一個 Wi-Fi 網路")
-    print(f"2. 手機開啟 Safari 瀏覽器，輸入上方的手機開啟網址")
-    print("3. 點擊 Safari 下方「分享」按鈕，選擇「加入主畫面」即可像 App 一樣使用！")
-    print("4. 若要停止伺服器，請按 Ctrl + C")
-    print("=" * 55 + "\n")
+    print(f"🏠 家中 Wi-Fi 手機開啟: http://{local_ip}:{port}")
+    print("=" * 62)
+    print("⏳ 正在連線 Cloudflare 建立全球 4G 外網通道，請稍候 3 秒...")
+
+    tunnel_proc = launch_cloudflare_tunnel(port)
 
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\n伺服器已安全停止。")
+    finally:
+        if tunnel_proc:
+            tunnel_proc.terminate()
 
 if __name__ == '__main__':
     main()
