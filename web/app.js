@@ -1,32 +1,12 @@
 // Lynn-music Mobile Cloud Web Player
 // 採用 YouTube 官方播放引擎 (100% 雲端運行、免開電腦、永不被機房封鎖)
-// 常用經典熱門曲庫 (隨身離線備援種子，確保切歌時 100% 同步起播，不被 iOS Safari 阻擋手勢)
-const BUILTIN_HITS = [
-  { id: 'EopCPbEj1FA', title: '突然好想你', artist: '五月天 (Mayday)' },
-  { id: '1omPNEVOlaM', title: '晴天', artist: '周杰倫 (Jay Chou)' },
-  { id: 'W0cs6ciCt_k', title: '愛人錯過', artist: '告五人 (Accusefive)' },
-  { id: '8HG_48C4a50', title: '如果可以', artist: '韋禮安 (WeiBird)' },
-  { id: 'T4SimnaiktU', title: '光年之外', artist: '鄧紫棋 (G.E.M.)' },
-  { id: 'GzU8KqOY8YA', title: '修煉愛情', artist: '林俊傑 (JJ Lin)' },
-  { id: 'F5tS548Pv4A', title: '倒帶', artist: '蔡依林 (Jolin Tsai)' },
-  { id: 'z2X2Ip47w30', title: '連名帶姓', artist: '張惠妹 (A-Mei)' },
-  { id: '79U12hU32_w', title: '十年', artist: '陳奕迅 (Eason Chan)' },
-  { id: 'f_F53wK2j0E', title: '遇見', artist: '孫燕姿 (Stefanie Sun)' },
-  { id: 'bu7nU9Mhpyo', title: '告白氣球', artist: '周杰倫 (Jay Chou)' },
-  { id: 'fnGbXb_R7_0', title: '派對動物', artist: '五月天 (Mayday)' },
-  { id: 'v25Ff2390fU', title: '在這座城市遺失了你', artist: '告五人 (Accusefive)' },
-  { id: 'Y8I8TvebU_A', title: '泡沫', artist: '鄧紫棋 (G.E.M.)' },
-  { id: '2V3T2y95K3M', title: '說好不哭', artist: '周杰倫 (Jay Chou)' },
-  { id: 'qkOtQU1wb_Q', title: '我不願讓你一個人', artist: '五月天 (Mayday)' },
-  { id: 'vpBYwcf1p9I', title: '披星戴月的想你', artist: '告五人 (Accusefive)' }
-];
-
 class LynnMobilePlayer {
   constructor() {
     this.ytPlayer = null;
     this.isYTReady = false;
     this.pendingSong = null;
     this.isSwitchingTrack = false;
+    this.lastErrorTime = 0;
 
     this.currentSong = null;
     this.queue = [];
@@ -38,33 +18,14 @@ class LynnMobilePlayer {
     this.mode = 'RADIO'; // 'RADIO', 'SINGLE', 'LOOP'
     this.wakeLock = null;
 
-    // 啟動時先將經典熱門歌曲預先填入佇列，確保隨時有歌可切
-    this.topUpQueue();
-
     this.initElements();
     this.initEventListeners();
     this.initMediaSession();
 
-    // 預設播佇列的第一首歌
-    if (this.queue.length > 0) {
-      const first = this.queue.shift();
-      this.loadAndPlaySong(first);
-    }
-  }
-
-  topUpQueue() {
-    const existingIds = new Set(this.queue.map(s => s.id));
-    const shuffled = [...BUILTIN_HITS].sort(() => Math.random() - 0.5);
-    shuffled.forEach(song => {
-      if (!this.playedIds.has(song.id) && !existingIds.has(song.id)) {
-        this.queue.push(song);
-        existingIds.add(song.id);
-      }
-    });
-    if (this.queue.length === 0) {
-      this.playedIds.clear();
-      shuffled.forEach(song => this.queue.push(song));
-    }
+    // 預設點一首開場歌曲 (由雲端抓取合法可播放音軌)
+    const startSeeds = ['張惠妹 如果你也聽說', '周杰倫 說好不哭', '五月天 突然好想你', '蔡依林 倒帶', '陳奕迅 十年', '告五人 愛人錯過', '韋禮安 如果可以'];
+    const chosen = startSeeds[Math.floor(Math.random() * startSeeds.length)];
+    this.searchAndPlay(chosen);
   }
 
   initElements() {
@@ -215,8 +176,7 @@ class LynnMobilePlayer {
         'playsinline': 1,
         'controls': 1,
         'rel': 0,
-        'enablejsapi': 1,
-        'origin': window.location.origin
+        'enablejsapi': 1
       },
       events: {
         'onReady': () => {
@@ -234,9 +194,15 @@ class LynnMobilePlayer {
         },
         'onStateChange': (e) => this.onYTStateChange(e),
         'onError': (e) => {
-          console.warn('YouTube 播放器報錯，自動跳下一首', e);
-          this.showToast('⚠️ 播放受限，自動播下一首');
-          setTimeout(() => this.playNext(), 1500);
+          console.warn('YouTube 播放器報錯 (代碼 ' + e.data + ')');
+          if (!this.lastErrorTime || Date.now() - this.lastErrorTime > 3000) {
+            this.lastErrorTime = Date.now();
+            this.showToast('⚠️ 該版本受限，為您切換下一首');
+          }
+          clearTimeout(this.errorTimer);
+          this.errorTimer = setTimeout(() => {
+            this.playNext();
+          }, 1500);
         }
       }
     });
@@ -533,14 +499,15 @@ class LynnMobilePlayer {
       this.queue.push(this.currentSong);
     }
 
-    // 確保佇列隨時都有備援歌曲，永不為空，確保 100% 同步起播，不丟失 iOS 手勢權限！
-    if (this.queue.length === 0) {
-      this.topUpQueue();
+    if (this.queue.length > 0) {
+      const next = this.queue.shift();
+      this.renderQueueUI();
+      this.loadAndPlaySong(next);
+    } else {
+      const fallbackSeeds = ['張惠妹 如果你也聽說', '周杰倫 晴天', '五月天 突然好想你', '蔡依林 倒帶', '陳奕迅 十年', '告五人 愛人錯過', '韋禮安 如果可以', '鄧紫棋 光年之外'];
+      const chosen = fallbackSeeds[Math.floor(Math.random() * fallbackSeeds.length)];
+      this.searchAndPlay(chosen);
     }
-
-    const next = this.queue.shift();
-    this.renderQueueUI();
-    this.loadAndPlaySong(next);
   }
 
   playPrev() {
