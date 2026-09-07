@@ -174,10 +174,16 @@ class MusicAPI:
         except Exception:
             pass
 
-        # 2. 若推薦筆數或歌手多樣性不足（少於 5 位不同歌手），即時動態向 YouTube 搜尋補足
+        # 2. 若推薦筆數或歌手多樣性不足（少於 5 位不同歌手），即時隨機挑選熱門歌手搜尋補足
         if len(by_artist.keys()) < 5:
             try:
-                supp_query = f"{artist} 相關" if (artist and artist != '未知歌手') else "華語流行熱歌"
+                curated_seeds = [
+                    '周杰倫', '告五人', '韋禮安', '五月天', '鄧紫棋', 
+                    '蔡依林', '林俊傑', '張惠妹', '陳奕迅', '孫燕姿', 
+                    '梁靜茹', '田馥甄', '盧廣仲', '徐佳瑩', '莫文蔚', 
+                    '李榮浩', '伍佰', '八三夭', '理想混蛋', '動力火車'
+                ]
+                supp_query = f"{artist} 相關" if (artist and artist != '未知歌手') else random.choice(curated_seeds)
                 results = self.yt.search(supp_query, filter='songs')
                 for item in results:
                     item_id = item.get('videoId')

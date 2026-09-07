@@ -1,6 +1,20 @@
 // Lynn-music Mobile Cloud Web Player
 // 採用 YouTube 官方播放引擎 (100% 雲端動態運行、免開電腦、永不被機房封鎖)
 
+// 🌟 熱門華語實力派藝人種子庫（開局隨機挑選藝人，每次打開都完全不同，絕不重複）
+const POPULAR_ARTISTS = [
+  '周杰倫', '告五人', '韋禮安', '五月天', '鄧紫棋', 
+  '蔡依林', '林俊傑', '張惠妹', '陳奕迅', '孫燕姿', 
+  '梁靜茹', '田馥甄', '盧廣仲', '徐佳瑩', '莫文蔚', 
+  '李榮浩', '伍佰', '八三夭', '理想混蛋', '動力火車', 
+  '蘇打綠', '楊丞琳', '蕭敬騰', '陶喆', '王力宏', 
+  '草東沒有派對', '落日飛車', '茄子蛋', '戴佩妮', '丁噹', 
+  '艾怡良', '郁可唯', '頑童MJ116', '瘦子E.SO', '高爾宣', 
+  '美秀集團', '麋先生', '宇宙人', '滅火器', '李聖傑', 
+  '林宥嘉', '蕭煌奇', '汪蘇瀧', '張震嶽', '信樂團', 
+  '張韶涵', '王心凌', '潘瑋柏', '光良', '品冠'
+];
+
 class LynnMobilePlayer {
   constructor() {
     this.ytPlayer = null;
@@ -23,13 +37,21 @@ class LynnMobilePlayer {
     this.initEventListeners();
     this.initMediaSession();
 
-    // 🌟 100% 雲端動態開局：每次開啟都向雲端取得最新熱門/隨機推薦，絕不重複固定歌單
-    this.initDynamicTrending();
+    // 🌟 依照熱門藝人庫隨機產出開場歌曲，每次進入都耳目一新
+    this.initRandomPopularArtist();
   }
 
-  async initDynamicTrending() {
+  getRandomArtist() {
+    return POPULAR_ARTISTS[Math.floor(Math.random() * POPULAR_ARTISTS.length)];
+  }
+
+  async initRandomPopularArtist() {
+    const artist = this.getRandomArtist();
+    this.elSongTitle.textContent = `🎵 正在為您推薦：${artist}`;
+    this.elSongArtist.textContent = '雲端熱門曲庫載入中...';
+
+    // 1. 優先嘗試從雲端 /api/trending 取得（若後端已有隨機熱門歌曲）
     try {
-      this.elSongTitle.textContent = '🎵 正在連接雲端推薦曲庫...';
       const res = await fetch('/api/trending');
       const data = await res.json();
       if (data.tracks && data.tracks.length > 0) {
@@ -45,9 +67,31 @@ class LynnMobilePlayer {
         return;
       }
     } catch (e) {
-      console.warn('動態開局載入失敗，採用後備搜尋', e);
+      console.warn('雲端推薦接口請求失敗，採用藝人即時搜尋', e);
     }
-    this.searchAndPlay('華語流行熱歌');
+
+    // 2. 依選中的隨機熱門藝人即時搜尋熱門代表作
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(artist)}&multi=1`);
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        const tracks = data.results;
+        for (let i = tracks.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
+        }
+        const startSong = tracks.shift();
+        this.queue = tracks;
+        this.renderQueueUI();
+        this.loadAndPlaySong(startSong);
+        return;
+      }
+    } catch (e) {
+      console.warn('藝人多筆搜尋失敗', e);
+    }
+
+    // 3. 備援搜尋該熱門藝人單曲（絕不搜尋「華語流行」字串）
+    this.searchAndPlay(artist);
   }
 
   initElements() {
@@ -565,8 +609,8 @@ class LynnMobilePlayer {
         this.fetchRadioQueue(next.id, next.artist, next.title);
       }
     } else {
-      // 萬一佇列空了，即時向雲端補充動態推薦歌曲
-      this.initDynamicTrending();
+      // 萬一佇列空了，隨機由熱門藝人補上推薦歌曲
+      this.initRandomPopularArtist();
     }
   }
 
