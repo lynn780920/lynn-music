@@ -1,12 +1,19 @@
 {
-  "name": "Lynn's Music Player",
-  "short_name": "Lynn Music",
+  "name": "Lynn's Music 雲端隨身聽",
+  "short_name": "Lynn's Music",
+  "description": "Lynn's 專屬雲端音樂播放器：動態歌詞、自訂歌單、隨機電台",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#121212",
   "theme_color": "#121212",
   "orientation": "portrait",
   "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "1024x1024 512x512 192x192 128x128",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "/icon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
