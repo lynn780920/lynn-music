@@ -207,10 +207,10 @@ class MusicAPI:
         artist_keys = list(by_artist.keys())
         random.shuffle(artist_keys)
 
-        # 若原曲歌手在清單中，優先作為輪播的開頭歌手（但只有 1 首，之後立即切換給下一位歌手）
+        # 確保原曲歌手不會排在佇列第一位（立即切換給其他不同歌手，杜絕連續同一歌手）
         if artist and artist in artist_keys:
             artist_keys.remove(artist)
-            artist_keys.insert(0, artist)
+            artist_keys.append(artist)
 
         max_len = max((len(v) for v in by_artist.values()), default=0)
         for r in range(max_len):

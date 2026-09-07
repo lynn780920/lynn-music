@@ -134,8 +134,12 @@ class LynnRequestHandler(SimpleHTTPRequestHandler):
                 '李榮浩', '伍佰', '八三夭', '理想混蛋', '動力火車'
             ]
             artist = random.choice(curated_artists)
-            results = api_engine.search_multi(artist, limit=15)
-            self.send_json({'tracks': results})
+            song = api_engine.search_song(artist)
+            if song:
+                radio_tracks = api_engine.radio(song['id'], artist=song['artist'], title=song['title'])
+                self.send_json({'startSong': song, 'tracks': radio_tracks})
+                return
+            self.send_json({'tracks': []})
         except Exception as e:
             self.send_json({'tracks': []})
 

@@ -46,22 +46,21 @@ class LynnMobilePlayer {
   }
 
   async initRandomPopularArtist() {
-    const artist = this.getRandomArtist();
-    this.elSongTitle.textContent = `🎵 正在為您推薦：${artist}`;
+    this.elSongTitle.textContent = '🎵 正在為您精選熱門電台...';
     this.elSongArtist.textContent = '雲端熱門曲庫載入中...';
 
-    // 1. 優先嘗試從雲端 /api/trending 取得（若後端已有隨機熱門歌曲）
+    // 1. 優先嘗試從雲端 /api/trending 取得（後端隨機挑選熱門藝人，並已交叉混編 30+ 首不同藝人的電台）
     try {
       const res = await fetch('/api/trending');
       const data = await res.json();
-      if (data.tracks && data.tracks.length > 0) {
-        const tracks = data.tracks;
-        for (let i = tracks.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
-        }
-        const startSong = tracks.shift();
-        this.queue = tracks;
+      if (data.startSong) {
+        this.queue = data.tracks || [];
+        this.renderQueueUI();
+        this.loadAndPlaySong(data.startSong);
+        return;
+      } else if (data.tracks && data.tracks.length > 0) {
+        const startSong = data.tracks[0];
+        this.queue = data.tracks.slice(1);
         this.renderQueueUI();
         this.loadAndPlaySong(startSong);
         return;
@@ -70,27 +69,8 @@ class LynnMobilePlayer {
       console.warn('雲端推薦接口請求失敗，採用藝人即時搜尋', e);
     }
 
-    // 2. 依選中的隨機熱門藝人即時搜尋熱門代表作
-    try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(artist)}&multi=1`);
-      const data = await res.json();
-      if (data.results && data.results.length > 0) {
-        const tracks = data.results;
-        for (let i = tracks.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
-        }
-        const startSong = tracks.shift();
-        this.queue = tracks;
-        this.renderQueueUI();
-        this.loadAndPlaySong(startSong);
-        return;
-      }
-    } catch (e) {
-      console.warn('藝人多筆搜尋失敗', e);
-    }
-
-    // 3. 備援搜尋該熱門藝人單曲（絕不搜尋「華語流行」字串）
+    // 2. 備援搜尋該熱門藝人單曲（絕不將同歌手多首歌塞入佇列）
+    const artist = this.getRandomArtist();
     this.searchAndPlay(artist);
   }
 
@@ -404,6 +384,8 @@ class LynnMobilePlayer {
       const res = await fetch(`/api/search?q=${encodeURIComponent(keyword)}`);
       const data = await res.json();
       if (data.song) {
+        this.queue = [];
+        this.renderQueueUI();
         this.loadAndPlaySong(data.song);
       }
     } catch (e) {
@@ -470,8 +452,8 @@ class LynnMobilePlayer {
     // 2. 平行非同步取得動態歌詞
     this.fetchLyrics(song.title, song.artist);
 
-    // 3. 取得電台推薦 (若在 RADIO 模式)
-    if (this.mode === 'RADIO') {
+    // 3. 取得電台推薦 (若在 RADIO 模式且佇列即將用罄)
+    if (this.mode === 'RADIO' && this.queue.length < 5) {
       this.fetchRadioQueue(song.id, song.artist, song.title);
     }
   }
@@ -525,8 +507,8 @@ class LynnMobilePlayer {
           }
         });
         if (newTracks.length > 0) {
-          // 將最新取得的交錯電台推薦插入佇列前端，保留原本歌曲作為備用緩衝
-          this.queue = [...newTracks, ...this.queue];
+          // 將最新取得的交錯電台推薦依序加入佇列後端，保持歌手交叉播放
+          this.queue = [...this.queue, ...newTracks];
           if (this.queue.length > 50) this.queue = this.queue.slice(0, 50);
           this.renderQueueUI();
         }
