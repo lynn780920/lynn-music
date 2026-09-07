@@ -15,6 +15,25 @@ class LynnMobilePlayer {
     this.customPlaylists = this.loadCustomPlaylists();
     this.mode = 'RADIO'; // 'RADIO', 'SINGLE', 'LOOP'
 
+    // 🎧 iOS 背景播放與鎖定畫面控制常駐錨點
+    this.silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+    this.silentAudio.loop = true;
+
+    // iOS Safari 首次觸控解鎖音訊權限
+    const unlockAudio = () => {
+      if (this.silentAudio) {
+        this.silentAudio.play().then(() => {
+          if (!this.ytPlayer || (typeof this.ytPlayer.getPlayerState === 'function' && this.ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING)) {
+            this.silentAudio.pause();
+          }
+        }).catch(() => {});
+      }
+      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('click', unlockAudio);
+    };
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('click', unlockAudio, { once: true });
+
     this.initElements();
     this.initEventListeners();
     this.initMediaSession();
@@ -156,8 +175,20 @@ class LynnMobilePlayer {
   onYTStateChange(e) {
     if (e.data === YT.PlayerState.PLAYING) {
       this.elBtnPlay.textContent = '⏸️';
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'playing';
+      }
+      if (this.silentAudio) {
+        this.silentAudio.play().catch(() => {});
+      }
     } else if (e.data === YT.PlayerState.PAUSED) {
       this.elBtnPlay.textContent = '▶️';
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
+      if (this.silentAudio) {
+        this.silentAudio.pause();
+      }
     } else if (e.data === YT.PlayerState.ENDED) {
       if (this.mode === 'SINGLE') {
         this.ytPlayer.seekTo(0);
@@ -171,8 +202,20 @@ class LynnMobilePlayer {
   // ─── 🎧 iOS 鎖定畫面與後台多媒體控制 ───
   initMediaSession() {
     if ('mediaSession' in navigator) {
-      navigator.mediaSession.setActionHandler('play', () => this.togglePlay());
-      navigator.mediaSession.setActionHandler('pause', () => this.togglePlay());
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
+          this.ytPlayer.playVideo();
+        }
+        if (this.silentAudio) this.silentAudio.play().catch(() => {});
+        navigator.mediaSession.playbackState = 'playing';
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (this.ytPlayer && typeof this.ytPlayer.pauseVideo === 'function') {
+          this.ytPlayer.pauseVideo();
+        }
+        if (this.silentAudio) this.silentAudio.pause();
+        navigator.mediaSession.playbackState = 'paused';
+      });
       navigator.mediaSession.setActionHandler('previoustrack', () => this.playPrev());
       navigator.mediaSession.setActionHandler('nexttrack', () => this.playNext());
     }
@@ -183,9 +226,13 @@ class LynnMobilePlayer {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: title,
         artist: artist,
-        album: "Lynn's Music Player",
-        artwork: [{ src: '/icon.ico', sizes: '128x128', type: 'image/x-icon' }]
+        album: "Lynn's Cloud Music",
+        artwork: [
+          { src: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=512&h=512&fit=crop', sizes: '512x512', type: 'image/jpeg' },
+          { src: '/icon.ico', sizes: '128x128', type: 'image/x-icon' }
+        ]
       });
+      navigator.mediaSession.playbackState = 'playing';
     }
   }
 
@@ -272,7 +319,7 @@ class LynnMobilePlayer {
 
     // 3. 取得電台推薦 (若在 RADIO 模式)
     if (this.mode === 'RADIO') {
-      this.fetchRadioQueue(song.id);
+      this.fetchRadioQueue(song.id, song.artist, song.title);
     }
   }
 
@@ -310,9 +357,9 @@ class LynnMobilePlayer {
     this.elLyricsScroller.innerHTML = `<p class="lyric-line active">${text}</p>`;
   }
 
-  async fetchRadioQueue(vid) {
+  async fetchRadioQueue(vid, artist = '', title = '') {
     try {
-      const res = await fetch(`/api/radio?vid=${vid}`);
+      const res = await fetch(`/api/radio?vid=${vid}&artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
       const data = await res.json();
       if (data.tracks && data.tracks.length > 0) {
         const existingIds = new Set(this.queue.map(s => s.id));
@@ -322,7 +369,7 @@ class LynnMobilePlayer {
             existingIds.add(t.id);
           }
         });
-        if (this.queue.length > 40) this.queue = this.queue.slice(0, 40);
+        if (this.queue.length > 50) this.queue = this.queue.slice(0, 50);
         this.renderQueueUI();
       }
     } catch (e) {
@@ -376,18 +423,36 @@ class LynnMobilePlayer {
     const state = this.ytPlayer.getPlayerState();
     if (state === YT.PlayerState.PLAYING) {
       this.ytPlayer.pauseVideo();
+      if (this.silentAudio) this.silentAudio.pause();
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
     } else {
       this.ytPlayer.playVideo();
+      if (this.silentAudio) this.silentAudio.play().catch(() => {});
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
     }
   }
 
   playNext() {
+    if (this.mode === 'LOOP' && this.currentSong) {
+      this.queue.push(this.currentSong);
+    }
+
     if (this.queue.length > 0) {
       const next = this.queue.shift();
       this.renderQueueUI();
       this.loadAndPlaySong(next);
-    } else if (this.currentSong) {
-      this.searchAndPlay(this.currentSong.title + ' ' + this.currentSong.artist);
+    } else {
+      this.showToast('⏭️ 為您挑選下一首好歌...');
+      const fallbackKeywords = [
+        '周杰倫 晴天', '五月天 突然好想你', '告五人 愛人錯過',
+        '韋禮安 如果可以', '鄧紫棋 光年之外', '蔡依林 倒帶',
+        '林俊傑 修煉愛情', '張惠妹 連名帶姓', '陳奕迅 十年', '孫燕姿 遇見',
+        '周杰倫 告白氣球', '五月天 派對動物', '告五人 在這座城市遺失了你'
+      ];
+      const curTitle = this.currentSong ? this.currentSong.title : '';
+      const unplayed = fallbackKeywords.filter(k => !k.includes(curTitle));
+      const chosen = unplayed.length > 0 ? unplayed[Math.floor(Math.random() * unplayed.length)] : fallbackKeywords[0];
+      this.searchAndPlay(chosen);
     }
   }
 
@@ -672,6 +737,13 @@ class LynnMobilePlayer {
   }
 
   renderQueueUI() {
+    const btnQueue = document.getElementById('btn-queue-open');
+    if (btnQueue) {
+      btnQueue.innerHTML = this.queue.length > 0
+        ? `📜<span style="font-size:10px; background:#00f5d4; color:#000; border-radius:8px; padding:1px 4px; font-weight:bold; vertical-align:top; margin-left:2px;">${this.queue.length}</span>`
+        : '📜';
+    }
+
     this.elQueueList.innerHTML = '';
     if (this.queue.length === 0) {
       this.elQueueList.innerHTML = '<p style="text-align:center; color:#777; margin-top:30px;">佇列目前為空</p>';

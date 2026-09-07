@@ -104,11 +104,13 @@ class LynnRequestHandler(SimpleHTTPRequestHandler):
 
     def handle_radio(self, query):
         vid = query.get('vid', [''])[0].strip()
+        artist = query.get('artist', [''])[0].strip()
+        title = query.get('title', [''])[0].strip()
         if not vid:
             self.send_json({'error': '缺少 video ID'}, status=400)
             return
 
-        tracks = api_engine.radio(vid)
+        tracks = api_engine.radio(vid, artist=artist, title=title)
         self.send_json({'tracks': tracks})
 
     def handle_lyrics(self, query):

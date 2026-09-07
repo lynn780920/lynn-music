@@ -124,20 +124,55 @@ class MusicAPI:
 
         raise RuntimeError(f"YouTube 串流解析失敗 ({last_error})")
 
-    def radio(self, vid):
+    def radio(self, vid, artist='', title=''):
+        tracks = []
         try:
             data = self.yt.get_watch_playlist(vid)
-            q = []
             for i in data.get('tracks', []):
-                if i['videoId'] != vid:
-                    q.append({
-                        'title': i['title'],
+                item_id = i.get('videoId')
+                if item_id and item_id != vid:
+                    tracks.append({
+                        'title': i.get('title', '未知歌曲'),
                         'artist': i['artists'][0]['name'] if i.get('artists') else '未知歌手',
-                        'id': i['videoId']
+                        'id': item_id
                     })
-            return q
-        except:
-            return []
+        except Exception:
+            pass
+
+        # 若 get_watch_playlist 失敗或筆數過少，使用歌手與推薦歌曲智慧補充
+        if len(tracks) < 5:
+            seen_ids = {vid} | {t['id'] for t in tracks}
+            search_terms = []
+            if artist and artist != '未知歌手':
+                search_terms.append(artist)
+            if title:
+                search_terms.append(title)
+            
+            # 加上華語熱門流行歌手隨機種子
+            popular_seeds = ['周杰倫', '五月天', '告五人', '鄧紫棋', '蔡依林', '林俊傑', '韋禮安', '張惠妹']
+            random.shuffle(popular_seeds)
+            search_terms.extend(popular_seeds[:3])
+
+            for term in search_terms:
+                try:
+                    results = self.yt.search(term, filter='songs')
+                    for item in results:
+                        item_id = item.get('videoId')
+                        if item_id and item_id not in seen_ids:
+                            tracks.append({
+                                'title': item.get('title', '未知歌曲'),
+                                'artist': item['artists'][0]['name'] if item.get('artists') else '未知歌手',
+                                'id': item_id
+                            })
+                            seen_ids.add(item_id)
+                        if len(tracks) >= 30:
+                            break
+                except Exception:
+                    pass
+                if len(tracks) >= 30:
+                    break
+
+        return tracks
 
     def lrclib(self, title, artist):
         def clean_text(text):
