@@ -137,6 +137,18 @@ class LynnMobilePlayer {
         this.elSearchResults.classList.add('hidden');
       }
     });
+
+    // 💡 iPhone 關螢幕教學彈窗
+    const helpModal = document.getElementById('help-modal');
+    const btnHelpOpen = document.getElementById('btn-help-open');
+    const btnHelpClose = document.getElementById('btn-help-close');
+    const btnHelpConfirm = document.getElementById('btn-help-confirm');
+
+    if (btnHelpOpen && helpModal) {
+      btnHelpOpen.addEventListener('click', () => helpModal.classList.remove('hidden'));
+      if (btnHelpClose) btnHelpClose.addEventListener('click', () => helpModal.classList.add('hidden'));
+      if (btnHelpConfirm) btnHelpConfirm.addEventListener('click', () => helpModal.classList.add('hidden'));
+    }
   }
 
   // ─── 🎬 YouTube 官方播放核心初始化 ───
@@ -149,11 +161,18 @@ class LynnMobilePlayer {
         'playsinline': 1,
         'controls': 1,
         'rel': 0,
-        'modestbranding': 1
+        'enablejsapi': 1,
+        'origin': window.location.origin
       },
       events: {
         'onReady': () => {
           this.isYTReady = true;
+          try {
+            const iframe = document.getElementById('yt-player');
+            if (iframe && iframe.tagName === 'IFRAME') {
+              iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+            }
+          } catch (err) {}
           if (this.pendingSong) {
             this.loadAndPlaySong(this.pendingSong);
             this.pendingSong = null;
@@ -188,6 +207,11 @@ class LynnMobilePlayer {
       }
       if (this.silentAudio) {
         this.silentAudio.pause();
+      }
+    } else if (e.data === 5 /* CUED */ || e.data === -1 /* UNSTARTED */) {
+      // 🌟 當新歌載入進入 CUED 或 UNSTARTED，立即自動播放，免去手動點 ▶️
+      if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
+        this.ytPlayer.playVideo();
       }
     } else if (e.data === YT.PlayerState.ENDED) {
       if (this.mode === 'SINGLE') {
@@ -308,8 +332,27 @@ class LynnMobilePlayer {
 
     // 1. 直接由手機原生調用 YouTube 官方播放 (免受機房封鎖)
     try {
-      this.ytPlayer.loadVideoById(song.id);
+      this.ytPlayer.loadVideoById({
+        videoId: song.id,
+        startSeconds: 0
+      });
       this.ytPlayer.playVideo();
+      // 保險自動起播定時器，避免 iOS Safari 偶爾卡在載入階段
+      setTimeout(() => {
+        if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
+          this.ytPlayer.playVideo();
+        }
+      }, 150);
+      setTimeout(() => {
+        if (this.ytPlayer && typeof this.ytPlayer.getPlayerState === 'function') {
+          if (this.ytPlayer.getPlayerState() !== YT.PlayerState.PLAYING) {
+            this.ytPlayer.playVideo();
+          }
+        }
+      }, 600);
+      if (this.silentAudio) {
+        this.silentAudio.play().catch(() => {});
+      }
     } catch (e) {
       console.warn('播放影片發生異常', e);
     }
