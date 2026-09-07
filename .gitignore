@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+dist/
+build/
+*.spec
+libvlc.dll
+libvlccore.dll
+plugins/
+my_favorites.txt
+playlist.json
+.env
+.vscode/

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Lynn-music 手機版</title>
+
+  <!-- iOS PWA 支援 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Lynn Music">
+  <meta name="theme-color" content="#121212">
+  <link rel="apple-touch-icon" href="/icon.ico">
+  <link rel="manifest" href="/manifest.json">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- 頂部搜尋列與標題 -->
+    <header class="top-bar">
+      <div class="brand">
+        <span class="logo-icon">🎵</span>
+        <span class="brand-name">Lynn's Music</span>
+      </div>
+      <div class="top-actions">
+        <button id="btn-queue-open" class="icon-btn" title="即將播放清單">📜</button>
+        <button id="btn-fav-list-open" class="icon-btn" title="我的最愛">❤️</button>
+        <button id="btn-playlists-open" class="icon-btn" title="自訂歌單">📂</button>
+      </div>
+    </header>
+
+    <!-- 快速點歌搜尋框 -->
+    <div class="search-section">
+      <input type="text" id="search-input" placeholder="🔍 搜尋歌名或歌手點歌..." autocomplete="off">
+      <button id="btn-search">搜尋</button>
+    </div>
+
+    <!-- 搜尋結果快顯下拉 -->
+    <div id="search-results" class="search-results hidden"></div>
+
+    <!-- 目前播放中資訊 -->
+    <section class="now-playing-info">
+      <div class="song-title-wrap">
+        <h2 id="song-title">正在載入電台音樂...</h2>
+        <p id="song-artist">點擊上方搜尋可隨時點歌</p>
+      </div>
+      <div class="song-action-btns">
+        <button id="btn-fav-toggle" class="btn-fav-heart" title="加入我的最愛">🤍</button>
+        <button id="btn-add-playlist" class="btn-fav-heart" title="加入自訂歌單">➕</button>
+      </div>
+    </section>
+
+    <!-- 動態歌詞視窗 (可上下捲動、當前句大字高亮) -->
+    <main class="lyrics-container">
+      <div id="lyrics-scroller" class="lyrics-scroller">
+        <p class="lyric-line active">⚡ 準備播放音樂中...</p>
+      </div>
+    </main>
+
+    <!-- 播放進度條 -->
+    <div class="progress-section">
+      <span id="current-time">00:00</span>
+      <input type="range" id="progress-bar" min="0" max="100" value="0" step="0.5">
+      <span id="total-time">00:00</span>
+    </div>
+
+    <!-- 底部核心控制列 -->
+    <footer class="controls-bar">
+      <button id="btn-mode" class="mode-btn" title="切換模式">🔄 電台</button>
+      <button id="btn-prev" class="ctrl-btn">⏮️</button>
+      <button id="btn-play" class="ctrl-btn play-pause-btn">▶️</button>
+      <button id="btn-next" class="ctrl-btn">⏭️</button>
+      <button id="btn-refresh" class="ctrl-btn icon-small" title="重新載入">⚡</button>
+    </footer>
+
+    <!-- 即將播放佇列抽屜 (Drawer) -->
+    <div id="queue-drawer" class="drawer hidden">
+      <div class="drawer-header">
+        <h3>📜 即將播放清單</h3>
+        <div class="drawer-btns">
+          <button id="btn-queue-shuffle" class="btn-sm">🔀 打亂</button>
+          <button id="btn-queue-close" class="btn-close">✕</button>
+        </div>
+      </div>
+      <div id="queue-list" class="drawer-content"></div>
+    </div>
+
+    <!-- 我的最愛歌單抽屜 (Drawer) -->
+    <div id="fav-drawer" class="drawer hidden">
+      <div class="drawer-header">
+        <h3>❤️ 我的最愛 (<span id="fav-count">0</span>)</h3>
+        <button id="btn-fav-close" class="btn-close">✕</button>
+      </div>
+      <div id="fav-list" class="drawer-content"></div>
+    </div>
+
+    <!-- 所有自訂歌單抽屜 (Drawer) -->
+    <div id="playlists-drawer" class="drawer hidden">
+      <div class="drawer-header">
+        <h3>📂 所有自訂歌單</h3>
+        <button id="btn-playlists-close" class="btn-close">✕</button>
+      </div>
+      <div id="playlists-list" class="drawer-content"></div>
+    </div>
+
+    <!-- 加到自訂歌單彈出視窗 (Modal) -->
+    <div id="add-playlist-modal" class="modal-overlay hidden">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h4>➕ 加入自訂歌單</h4>
+          <button id="btn-modal-close" class="btn-close">✕</button>
+        </div>
+        <div class="new-playlist-input-wrap">
+          <input type="text" id="new-playlist-name" placeholder="輸入全新歌單名稱...">
+          <button id="btn-create-playlist-confirm">建立並加入</button>
+        </div>
+        <div class="modal-divider">或選擇現有歌單：</div>
+        <div id="modal-playlist-options" class="modal-playlist-options"></div>
+      </div>
+    </div>
+
+    <!-- Toast 提示訊息 -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- 核心音訊播放器 -->
+    <audio id="audio-player" playsinline preload="auto"></audio>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
