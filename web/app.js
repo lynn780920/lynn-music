@@ -222,7 +222,8 @@ class LynnMobilePlayer {
         'playsinline': 1,
         'controls': 1,
         'rel': 0,
-        'enablejsapi': 1
+        'enablejsapi': 1,
+        'origin': window.location.origin
       },
       events: {
         'onReady': () => {
@@ -230,7 +231,9 @@ class LynnMobilePlayer {
           try {
             const iframe = document.getElementById('yt-player');
             if (iframe && iframe.tagName === 'IFRAME') {
-              iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+              iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+              iframe.setAttribute('playsinline', '1');
+              iframe.setAttribute('webkit-playsinline', '1');
             }
           } catch (err) {}
           if (this.pendingSong) {
@@ -302,40 +305,96 @@ class LynnMobilePlayer {
 
   // ─── 🎧 iOS 鎖定畫面與後台多媒體控制 ───
   initMediaSession() {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.setActionHandler('play', () => {
-        if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
-          this.ytPlayer.playVideo();
-        }
-        navigator.mediaSession.playbackState = 'playing';
-      });
-      navigator.mediaSession.setActionHandler('pause', () => {
-        this.isSwitchingTrack = false;
-        clearInterval(this.autoPlayInterval);
-        clearTimeout(this.switchTrackTimeout);
-        clearTimeout(this.playingStabilizeTimer);
-        if (this.ytPlayer && typeof this.ytPlayer.pauseVideo === 'function') {
-          this.ytPlayer.pauseVideo();
-        }
-        navigator.mediaSession.playbackState = 'paused';
-      });
-      navigator.mediaSession.setActionHandler('previoustrack', () => this.playPrev());
-      navigator.mediaSession.setActionHandler('nexttrack', () => this.playNext());
-    }
+    if (!('mediaSession' in navigator)) return;
+
+    const safeSetHandler = (action, handler) => {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch (e) {
+        console.warn(`MediaSession 動作 "${action}" 不受此瀏覽器支援:`, e);
+      }
+    };
+
+    safeSetHandler('play', () => {
+      if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
+        this.ytPlayer.playVideo();
+      }
+      navigator.mediaSession.playbackState = 'playing';
+    });
+
+    safeSetHandler('pause', () => {
+      this.isSwitchingTrack = false;
+      clearInterval(this.autoPlayInterval);
+      clearTimeout(this.switchTrackTimeout);
+      clearTimeout(this.playingStabilizeTimer);
+      if (this.ytPlayer && typeof this.ytPlayer.pauseVideo === 'function') {
+        this.ytPlayer.pauseVideo();
+      }
+      navigator.mediaSession.playbackState = 'paused';
+    });
+
+    safeSetHandler('previoustrack', () => this.playPrev());
+    safeSetHandler('nexttrack', () => this.playNext());
+
+    safeSetHandler('seekbackward', (details) => {
+      const skip = (details && details.seekOffset) || 10;
+      if (this.ytPlayer && typeof this.ytPlayer.getCurrentTime === 'function') {
+        const cur = this.ytPlayer.getCurrentTime() || 0;
+        this.ytPlayer.seekTo(Math.max(cur - skip, 0), true);
+      }
+    });
+
+    safeSetHandler('seekforward', (details) => {
+      const skip = (details && details.seekOffset) || 10;
+      if (this.ytPlayer && typeof this.ytPlayer.getCurrentTime === 'function') {
+        const cur = this.ytPlayer.getCurrentTime() || 0;
+        const dur = this.ytPlayer.getDuration() || 0;
+        this.ytPlayer.seekTo(dur > 0 ? Math.min(cur + skip, dur) : cur + skip, true);
+      }
+    });
+
+    safeSetHandler('seekto', (details) => {
+      if (details && details.seekTime !== undefined && this.ytPlayer && typeof this.ytPlayer.seekTo === 'function') {
+        this.ytPlayer.seekTo(details.seekTime, true);
+      }
+    });
   }
 
-  updateMediaSession(title, artist) {
-    if ('mediaSession' in navigator) {
+  updateMediaSession(song) {
+    if (!('mediaSession' in navigator) || !song) return;
+
+    const title = typeof song === 'object' ? song.title : song;
+    const artist = typeof song === 'object' ? song.artist : (arguments[1] || '未知歌手');
+    const songId = typeof song === 'object' ? song.id : null;
+
+    const artwork = [];
+    if (songId) {
+      artwork.push({
+        src: `https://img.youtube.com/vi/${songId}/hqdefault.jpg`,
+        sizes: '480x360',
+        type: 'image/jpeg'
+      });
+      artwork.push({
+        src: `https://img.youtube.com/vi/${songId}/mqdefault.jpg`,
+        sizes: '320x180',
+        type: 'image/jpeg'
+      });
+    }
+    artwork.push(
+      { src: '/cover.jpg', sizes: '512x512', type: 'image/jpeg' },
+      { src: '/icon.png', sizes: '512x512', type: 'image/png' }
+    );
+
+    try {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: title,
-        artist: artist,
+        title: title || '未知歌曲',
+        artist: artist || '未知歌手',
         album: "Lynn's Cloud Music",
-        artwork: [
-          { src: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=512&h=512&fit=crop', sizes: '512x512', type: 'image/jpeg' },
-          { src: '/icon.ico', sizes: '128x128', type: 'image/x-icon' }
-        ]
+        artwork: artwork
       });
       navigator.mediaSession.playbackState = 'playing';
+    } catch (err) {
+      console.warn('更新 MediaSession Metadata 異常:', err);
     }
   }
 
@@ -416,7 +475,7 @@ class LynnMobilePlayer {
     this.elSongTitle.textContent = song.title;
     this.elSongArtist.textContent = song.artist;
     this.updateFavButtonUI();
-    this.updateMediaSession(song.title, song.artist);
+    this.updateMediaSession(song);
     this.renderLyricsPlaceholder('⚡ 正在載入動態歌詞與音樂...');
 
     // 1. 直接由手機原生調用 YouTube 官方播放 (免受機房封鎖)
@@ -530,6 +589,21 @@ class LynnMobilePlayer {
       this.elProgressBar.value = pct;
       this.elCurrentTime.textContent = this.formatTime(cur);
       this.elTotalTime.textContent = this.formatTime(dur);
+
+      // 🌟 同步 iOS 鎖定畫面進度條與播放時間 (W3C Media Session Position State)
+      if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+        try {
+          const now = Date.now();
+          if (!this.lastPosUpdate || now - this.lastPosUpdate >= 1000) {
+            this.lastPosUpdate = now;
+            navigator.mediaSession.setPositionState({
+              duration: Math.max(dur, 0),
+              playbackRate: (this.ytPlayer.getPlaybackRate ? this.ytPlayer.getPlaybackRate() : 1) || 1,
+              position: Math.min(Math.max(cur, 0), dur)
+            });
+          }
+        } catch (e) {}
+      }
     }
 
     // 更新動態歌詞高亮
