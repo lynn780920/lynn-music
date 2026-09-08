@@ -317,9 +317,10 @@ class LynnMobilePlayer {
 
     safeSetHandler('play', () => {
       if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
-        this.ytPlayer.playVideo();
+        try {
+          this.ytPlayer.playVideo();
+        } catch (e) {}
       }
-      navigator.mediaSession.playbackState = 'playing';
     });
 
     safeSetHandler('pause', () => {
@@ -328,9 +329,10 @@ class LynnMobilePlayer {
       clearTimeout(this.switchTrackTimeout);
       clearTimeout(this.playingStabilizeTimer);
       if (this.ytPlayer && typeof this.ytPlayer.pauseVideo === 'function') {
-        this.ytPlayer.pauseVideo();
+        try {
+          this.ytPlayer.pauseVideo();
+        } catch (e) {}
       }
-      navigator.mediaSession.playbackState = 'paused';
     });
 
     safeSetHandler('previoustrack', () => this.playPrev());
@@ -392,7 +394,9 @@ class LynnMobilePlayer {
         album: "Lynn's Cloud Music",
         artwork: artwork
       });
-      navigator.mediaSession.playbackState = 'playing';
+      if (this.ytPlayer && typeof this.ytPlayer.getPlayerState === 'function' && this.ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) {
+        navigator.mediaSession.playbackState = 'playing';
+      }
     } catch (err) {
       console.warn('更新 MediaSession Metadata 異常:', err);
     }
@@ -591,7 +595,7 @@ class LynnMobilePlayer {
       this.elTotalTime.textContent = this.formatTime(dur);
 
       // 🌟 同步 iOS 鎖定畫面進度條與播放時間 (W3C Media Session Position State)
-      if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+      if (dur > 0 && Number.isFinite(dur) && Number.isFinite(cur) && 'mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
         try {
           const now = Date.now();
           if (!this.lastPosUpdate || now - this.lastPosUpdate >= 1000) {
