@@ -49,6 +49,8 @@ class LynnRequestHandler(SimpleHTTPRequestHandler):
             self.handle_stream(query)
         elif path == '/api/radio':
             self.handle_radio(query)
+        elif path == '/api/random_queue':
+            self.handle_random_queue(query)
         elif path == '/api/lyrics':
             self.handle_lyrics(query)
         elif path == '/icon.ico':
@@ -127,19 +129,21 @@ class LynnRequestHandler(SimpleHTTPRequestHandler):
 
     def handle_trending(self):
         try:
-            curated_artists = [
-                '周杰倫', '告五人', '韋禮安', '五月天', '鄧紫棋', 
-                '蔡依林', '林俊傑', '張惠妹', '陳奕迅', '孫燕姿', 
-                '梁靜茹', '田馥甄', '盧廣仲', '徐佳瑩', '莫文蔚',
-                '李榮浩', '伍佰', '八三夭', '理想混蛋', '動力火車'
-            ]
-            artist = random.choice(curated_artists)
-            song = api_engine.search_song(artist)
-            if song:
-                radio_tracks = api_engine.radio(song['id'], artist=song['artist'], title=song['title'])
-                self.send_json({'startSong': song, 'tracks': radio_tracks})
+            tracks = api_engine.generate_diverse_queue(limit=25)
+            if tracks:
+                start_song = tracks[0]
+                queue_tracks = tracks[1:]
+                self.send_json({'startSong': start_song, 'tracks': queue_tracks})
                 return
             self.send_json({'tracks': []})
+        except Exception as e:
+            self.send_json({'tracks': []})
+
+    def handle_random_queue(self, query):
+        exclude = query.get('exclude', [''])[0].strip()
+        try:
+            tracks = api_engine.generate_diverse_queue(limit=25, exclude_artist=exclude)
+            self.send_json({'tracks': tracks})
         except Exception as e:
             self.send_json({'tracks': []})
 

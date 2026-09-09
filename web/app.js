@@ -153,7 +153,7 @@ class LynnMobilePlayer {
     // 抽屜開關
     document.getElementById('btn-queue-open').addEventListener('click', () => this.openQueueDrawer());
     document.getElementById('btn-queue-close').addEventListener('click', () => this.elQueueDrawer.classList.add('hidden'));
-    document.getElementById('btn-queue-shuffle').addEventListener('click', () => this.shuffleQueue());
+    document.getElementById('btn-queue-shuffle').addEventListener('click', () => this.regenerateRandomQueue());
 
     document.getElementById('btn-fav-list-open').addEventListener('click', () => this.openFavDrawer());
     document.getElementById('btn-fav-close').addEventListener('click', () => this.elFavDrawer.classList.add('hidden'));
@@ -499,15 +499,28 @@ class LynnMobilePlayer {
       if (data.tracks && data.tracks.length > 0) {
         const existingIds = new Set(this.queue.map(s => s.id));
         if (this.currentSong) existingIds.add(this.currentSong.id);
+
+        // 嚴格藝人排重：即將播放清單絕不出現同一個藝人（包含正在播放的歌手）
+        const existingArtists = new Set(this.queue.map(s => (s.artist || '').toLowerCase().trim()).filter(Boolean));
+        if (this.currentSong && this.currentSong.artist) {
+          existingArtists.add(this.currentSong.artist.toLowerCase().trim());
+        }
+
         const newTracks = [];
         data.tracks.forEach(t => {
+          const tArt = (t.artist || '').toLowerCase().trim();
           if (!this.playedIds.has(t.id) && !existingIds.has(t.id)) {
+            // 若該歌手已在佇列中或正在播放，跳過以避免同歌手重複
+            if (tArt && existingArtists.has(tArt)) {
+              return;
+            }
             newTracks.push(t);
             existingIds.add(t.id);
+            if (tArt) existingArtists.add(tArt);
           }
         });
         if (newTracks.length > 0) {
-          // 將最新取得的交錯電台推薦依序加入佇列後端，保持歌手交叉播放
+          // 將最新取得的多樣化電台推薦依序加入佇列後端，保證歌手絕不重複
           this.queue = [...this.queue, ...newTracks];
           if (this.queue.length > 50) this.queue = this.queue.slice(0, 50);
           this.renderQueueUI();
@@ -911,6 +924,24 @@ class LynnMobilePlayer {
       });
       this.elQueueList.appendChild(item);
     });
+  }
+
+  async regenerateRandomQueue() {
+    this.showToast('🎲 正在隨機生成全新多元歌手歌單...');
+    try {
+      const curArt = this.currentSong ? this.currentSong.artist : '';
+      const res = await fetch(`/api/random_queue?exclude=${encodeURIComponent(curArt)}`);
+      const data = await res.json();
+      if (data.tracks && data.tracks.length > 0) {
+        this.queue = data.tracks;
+        this.renderQueueUI();
+        this.showToast(`🎉 已生成 ${data.tracks.length} 首不同歌手的全新電台！`);
+        return;
+      }
+    } catch (e) {
+      console.warn('雲端隨機歌單失敗，使用本機打亂', e);
+    }
+    this.shuffleQueue();
   }
 
   shuffleQueue() {
