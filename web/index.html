@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Lynn's Music 雲端音樂隨身聽 🎵</title>
+  <title>Lynn's Music 雲端音樂隨身聽</title>
   <meta name="description" content="Lynn's 專屬雲端音樂播放器：支援動態歌詞、自訂歌單、隨機電台推薦與 iPhone 熄屏省電播放，隨時隨地好歌聽不完！">
 
-  <!-- 🌟 LINE / Facebook / WeChat / Open Graph 社群分享卡片標籤 -->
+  <!-- 社群分享卡片標籤 -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Lynn's Music 雲端音樂隨身聽 🎵">
+  <meta property="og:title" content="Lynn's Music 雲端音樂隨身聽">
   <meta property="og:description" content="Lynn's 專屬雲端音樂播放器：動態歌詞、自訂歌單、隨機電台推薦，隨時隨地好歌聽不完！">
   <meta property="og:image" content="https://lynn-music.onrender.com/cover.jpg">
   <meta property="og:image:secure_url" content="https://lynn-music.onrender.com/cover.jpg">
@@ -21,7 +21,7 @@
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Lynn's Music 雲端音樂隨身聽 🎵">
+  <meta name="twitter:title" content="Lynn's Music 雲端音樂隨身聽">
   <meta name="twitter:description" content="Lynn's 專屬雲端音樂播放器：動態歌詞、自訂歌單、隨機電台推薦，隨時隨地好歌聽不完！">
   <meta name="twitter:image" content="https://lynn-music.onrender.com/cover.jpg">
 
@@ -34,6 +34,9 @@
   <link rel="icon" type="image/png" href="/icon.png">
   <link rel="manifest" href="/manifest.json">
 
+  <!-- Font Awesome 6.5.1 專業向量圖示庫 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
   <!-- YouTube 官方播放核心 API -->
   <script src="https://www.youtube.com/iframe_api"></script>
   <link rel="stylesheet" href="style.css">
@@ -43,22 +46,25 @@
     <!-- 頂部搜尋列與標題 -->
     <header class="top-bar">
       <div class="brand">
-        <span class="logo-icon">🎵</span>
+        <span class="logo-icon"><i class="fa-solid fa-compact-disc fa-spin-pulse" style="--fa-animation-duration: 6s;"></i></span>
         <span class="brand-name">Lynn's Music</span>
       </div>
       <div class="top-actions">
-        <button id="btn-toggle-video" class="icon-btn" title="切換純歌詞/MV模式">📝</button>
-        <button id="btn-sleep-mode" class="icon-btn" title="🌙 熄屏省電聽歌模式">🌙</button>
-        <button id="btn-queue-open" class="icon-btn" title="即將播放清單">📜</button>
-        <button id="btn-fav-list-open" class="icon-btn" title="我的最愛">❤️</button>
-        <button id="btn-playlists-open" class="icon-btn" title="自訂歌單">📂</button>
-        <button id="btn-help-open" class="icon-btn" title="iPhone 關螢幕聽歌教學">💡</button>
+        <button id="btn-toggle-video" class="icon-btn" title="切換純歌詞/MV模式"><i class="fa-solid fa-film"></i></button>
+        <button id="btn-sleep-mode" class="icon-btn" title="熄屏省電聽歌模式"><i class="fa-solid fa-moon"></i></button>
+        <button id="btn-queue-open" class="icon-btn" title="即將播放清單"><i class="fa-solid fa-list-ul"></i></button>
+        <button id="btn-fav-list-open" class="icon-btn" title="我的最愛"><i class="fa-solid fa-heart"></i></button>
+        <button id="btn-playlists-open" class="icon-btn" title="自訂歌單"><i class="fa-solid fa-folder-closed"></i></button>
+        <button id="btn-help-open" class="icon-btn" title="iPhone 背景播放教學"><i class="fa-regular fa-circle-question"></i></button>
       </div>
     </header>
 
     <!-- 快速點歌搜尋框 -->
     <div class="search-section">
-      <input type="text" id="search-input" placeholder="🔍 搜尋歌名或歌手點歌..." autocomplete="off">
+      <div class="search-input-wrapper">
+        <i class="fa-solid fa-magnifying-glass search-leading-icon"></i>
+        <input type="text" id="search-input" placeholder="搜尋歌名、歌手點歌..." autocomplete="off">
+      </div>
       <button id="btn-search">搜尋</button>
     </div>
 
@@ -72,8 +78,8 @@
         <p id="song-artist">點擊上方搜尋可隨時點歌</p>
       </div>
       <div class="song-action-btns">
-        <button id="btn-fav-toggle" class="btn-fav-heart" title="加入我的最愛">🤍</button>
-        <button id="btn-add-playlist" class="btn-fav-heart" title="加入自訂歌單">➕</button>
+        <button id="btn-fav-toggle" class="btn-fav-heart" title="加入我的最愛"><i class="fa-regular fa-heart"></i></button>
+        <button id="btn-add-playlist" class="btn-fav-heart" title="加入自訂歌單"><i class="fa-solid fa-plus"></i></button>
       </div>
     </section>
 
@@ -85,7 +91,7 @@
     <!-- 動態歌詞視窗 (可上下捲動、當前句大字高亮) -->
     <main class="lyrics-container">
       <div id="lyrics-scroller" class="lyrics-scroller">
-        <p class="lyric-line active">⚡ 點擊下方播放開始聽歌...</p>
+        <p class="lyric-line active">點擊下方播放開始聽歌...</p>
       </div>
     </main>
 
@@ -98,20 +104,20 @@
 
     <!-- 底部核心控制列 -->
     <footer class="controls-bar">
-      <button id="btn-mode" class="mode-btn" title="切換模式">🔄 電台</button>
-      <button id="btn-prev" class="ctrl-btn">⏮️</button>
-      <button id="btn-play" class="ctrl-btn play-pause-btn">▶️</button>
-      <button id="btn-next" class="ctrl-btn">⏭️</button>
-      <button id="btn-refresh" class="ctrl-btn icon-small" title="重新載入">⚡</button>
+      <button id="btn-mode" class="mode-btn" title="切換模式"><i class="fa-solid fa-shuffle"></i> 隨機電台</button>
+      <button id="btn-prev" class="ctrl-btn" title="上一首"><i class="fa-solid fa-backward-step"></i></button>
+      <button id="btn-play" class="ctrl-btn play-pause-btn" title="播放 / 暫停"><i class="fa-solid fa-play"></i></button>
+      <button id="btn-next" class="ctrl-btn" title="下一首"><i class="fa-solid fa-forward-step"></i></button>
+      <button id="btn-refresh" class="ctrl-btn icon-small" title="重新載入"><i class="fa-solid fa-arrows-rotate"></i></button>
     </footer>
 
     <!-- 即將播放佇列抽屜 (Drawer) -->
     <div id="queue-drawer" class="drawer hidden">
       <div class="drawer-header">
-        <h3>📜 即將播放清單</h3>
+        <h3><i class="fa-solid fa-list-ul"></i> 即將播放清單</h3>
         <div class="drawer-btns">
-          <button id="btn-queue-shuffle" class="btn-sm" title="隨機生成全新多元歌單">🎲 隨機換新歌單</button>
-          <button id="btn-queue-close" class="btn-close">✕</button>
+          <button id="btn-queue-shuffle" class="btn-sm" title="隨機生成全新多元歌單"><i class="fa-solid fa-dice"></i> 隨機換新歌單</button>
+          <button id="btn-queue-close" class="btn-close"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
       <div id="queue-list" class="drawer-content"></div>
@@ -120,8 +126,8 @@
     <!-- 我的最愛歌單抽屜 (Drawer) -->
     <div id="fav-drawer" class="drawer hidden">
       <div class="drawer-header">
-        <h3>❤️ 我的最愛 (<span id="fav-count">0</span>)</h3>
-        <button id="btn-fav-close" class="btn-close">✕</button>
+        <h3><i class="fa-solid fa-heart" style="color: #ff3366;"></i> 我的最愛 (<span id="fav-count">0</span>)</h3>
+        <button id="btn-fav-close" class="btn-close"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div id="fav-list" class="drawer-content"></div>
     </div>
@@ -129,8 +135,8 @@
     <!-- 所有自訂歌單抽屜 (Drawer) -->
     <div id="playlists-drawer" class="drawer hidden">
       <div class="drawer-header">
-        <h3>📂 所有自訂歌單</h3>
-        <button id="btn-playlists-close" class="btn-close">✕</button>
+        <h3><i class="fa-solid fa-folder-open"></i> 所有自訂歌單</h3>
+        <button id="btn-playlists-close" class="btn-close"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div id="playlists-list" class="drawer-content"></div>
     </div>
@@ -139,8 +145,8 @@
     <div id="add-playlist-modal" class="modal-overlay hidden">
       <div class="modal-box">
         <div class="modal-header">
-          <h4>➕ 加入自訂歌單</h4>
-          <button id="btn-modal-close" class="btn-close">✕</button>
+          <h4><i class="fa-solid fa-folder-plus"></i> 加入自訂歌單</h4>
+          <button id="btn-modal-close" class="btn-close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="new-playlist-input-wrap">
           <input type="text" id="new-playlist-name" placeholder="輸入全新歌單名稱...">
@@ -151,38 +157,38 @@
       </div>
     </div>
 
-    <!-- 💡 iPhone 關螢幕背景聽歌秘笈 Modal -->
+    <!-- iPhone 關螢幕背景聽歌教學 Modal -->
     <div id="help-modal" class="modal-overlay hidden">
       <div class="modal-box" style="text-align: left; line-height: 1.6; max-width: 360px;">
         <div class="modal-header">
-          <h4 style="color: #00f5d4;">📱 iPhone 關螢幕聽歌秘笈</h4>
-          <button id="btn-help-close" class="btn-close">✕</button>
+          <h4 style="color: #00f5d4;"><i class="fa-solid fa-mobile-screen"></i> iPhone 關螢幕聽歌指南</h4>
+          <button id="btn-help-close" class="btn-close"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <p style="font-size: 13px; color: #aaa; margin: 8px 0 12px 0;">
-          不用另外安裝 App，直接使用 Safari 就能關螢幕聽歌：
+          無需安裝第三方 App，使用 Safari 即可享受背景播放：
         </p>
         <div style="background: rgba(255,255,255,0.06); padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 13px; border-left: 3px solid #00f5d4;">
-          <b style="color: #00f5d4;">🌟 秘笈 1：鎖定畫面點「▶️」</b><br>
-          按電源鍵關螢幕若暫停，只需輕觸螢幕，在鎖定畫面點一下 <b>「▶️ 播放」</b>（或按耳機按鍵），就能放進口袋持續聽！
+          <b style="color: #00f5d4;"><i class="fa-solid fa-play"></i> 方法 1：鎖定畫面點播放</b><br>
+          按電源鍵關螢幕若暫停，只需輕觸螢幕，在鎖定畫面上點擊 <b>「播放」</b>（或按耳機按鍵），即可放進口袋持續收聽。
         </div>
         <div style="background: rgba(255,255,255,0.06); padding: 12px; border-radius: 8px; margin-bottom: 10px; font-size: 13px; border-left: 3px solid #ff007f;">
-          <b style="color: #ff007f;">🎬 秘笈 2：畫中畫（連續播放不中斷）</b><br>
-          點擊上方 <b>🎬</b> 開啟 MV，點擊影片中的 <b>「畫中畫 🔲」</b> 圖示，切換 App 或關閉螢幕都不會中斷！
+          <b style="color: #ff007f;"><i class="fa-solid fa-film"></i> 方法 2：開啟畫中畫</b><br>
+          點擊上方 MV 按鈕展開畫面，點選影片中的 <b>「畫中畫」</b> 圖示，切換應用程式或關閉螢幕均不中斷。
         </div>
         <div style="background: rgba(255,255,255,0.06); padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; border-left: 3px solid #ffd166;">
-          <b style="color: #ffd166;">📲 秘笈 3：加入主畫面</b><br>
-          在 Safari 點擊下方 <b>「分享」</b> ➜ 選擇 <b>「加入主畫面」</b>，即可全螢幕獨立運行！
+          <b style="color: #ffd166;"><i class="fa-solid fa-arrow-up-from-bracket"></i> 方法 3：加入主畫面</b><br>
+          在 Safari 點擊下方 <b>「分享」</b> 選擇 <b>「加入主畫面」</b>，即可如獨立 App 般全螢幕沉浸使用。
         </div>
-        <button id="btn-help-confirm" style="width: 100%; background: #00f5d4; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">我知道了！開始聽歌</button>
+        <button id="btn-help-confirm" style="width: 100%; background: #00f5d4; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;">我知道了，開始聽歌</button>
       </div>
     </div>
 
-    <!-- 🌙 熄屏省電聽歌覆蓋層 (OLED 真正純黑省電模式) -->
+    <!-- 熄屏省電聽歌覆蓋層 (OLED 真正純黑省電模式) -->
     <div id="blackout-screen" class="blackout-screen hidden">
       <div class="blackout-content">
-        <div class="blackout-icon">🌙</div>
+        <div class="blackout-icon"><i class="fa-solid fa-moon"></i></div>
         <div class="blackout-status" id="blackout-song">正在播放音樂...</div>
-        <div class="blackout-tip">💡 螢幕已純黑省電運行，放進口袋不中斷<br>（點擊螢幕任意處喚醒介面）</div>
+        <div class="blackout-tip">螢幕已進入純黑省電模式，放進口袋不中斷<br>（點擊螢幕任意處即可喚醒介面）</div>
       </div>
     </div>
 

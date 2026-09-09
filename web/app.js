@@ -46,7 +46,7 @@ class LynnMobilePlayer {
   }
 
   async initRandomPopularArtist() {
-    this.elSongTitle.textContent = '🎵 正在為您精選熱門電台...';
+    this.elSongTitle.textContent = '正在為您精選熱門電台...';
     this.elSongArtist.textContent = '雲端熱門曲庫載入中...';
 
     // 1. 優先嘗試從雲端 /api/trending 取得（後端隨機挑選熱門藝人，並已交叉混編 30+ 首不同藝人的電台）
@@ -124,8 +124,8 @@ class LynnMobilePlayer {
       this.elBtnToggleVideo.addEventListener('click', () => {
         this.elVideoWrapper.classList.toggle('hidden');
         const isHidden = this.elVideoWrapper.classList.contains('hidden');
-        this.elBtnToggleVideo.textContent = isHidden ? '🎬' : '📝';
-        this.showToast(isHidden ? '切換至：純歌詞大字模式' : '切換至：MV影音畫面模式');
+        this.elBtnToggleVideo.innerHTML = isHidden ? '<i class="fa-solid fa-film"></i>' : '<i class="fa-solid fa-align-left"></i>';
+        this.showToast(isHidden ? '切換至：純歌詞大字模式' : '切換至：MV 影音畫面模式');
       });
     }
 
@@ -171,7 +171,7 @@ class LynnMobilePlayer {
       }
     });
 
-    // 💡 iPhone 關螢幕教學彈窗
+    // iPhone 關螢幕教學彈窗
     const helpModal = document.getElementById('help-modal');
     const btnHelpOpen = document.getElementById('btn-help-open');
     const btnHelpClose = document.getElementById('btn-help-close');
@@ -183,7 +183,7 @@ class LynnMobilePlayer {
       if (btnHelpConfirm) btnHelpConfirm.addEventListener('click', () => helpModal.classList.add('hidden'));
     }
 
-    // 🌙 OLED 熄屏省電聽歌模式
+    // 熄屏省電聽歌模式
     if (this.elBtnSleepMode && this.elBlackoutScreen) {
       this.elBtnSleepMode.addEventListener('click', () => this.enterSleepMode());
       this.elBlackoutScreen.addEventListener('click', () => this.exitSleepMode());
@@ -193,9 +193,9 @@ class LynnMobilePlayer {
   async enterSleepMode() {
     this.elBlackoutScreen.classList.remove('hidden');
     if (this.currentSong) {
-      this.elBlackoutSong.textContent = `🎵 ${this.currentSong.title} - ${this.currentSong.artist}`;
+      this.elBlackoutSong.textContent = `${this.currentSong.title} - ${this.currentSong.artist}`;
     }
-    this.showToast('🌙 已進入熄屏省電模式，點擊螢幕任意處可喚醒');
+    this.showToast('已進入熄屏省電模式，點擊螢幕任意處可喚醒');
     try {
       if ('wakeLock' in navigator) {
         this.wakeLock = await navigator.wakeLock.request('screen');
@@ -209,7 +209,7 @@ class LynnMobilePlayer {
       this.wakeLock.release().catch(() => {});
       this.wakeLock = null;
     }
-    this.showToast('☀️ 已喚醒播放介面');
+    this.showToast('已喚醒播放介面');
   }
 
   // ─── 🎬 YouTube 官方播放核心初始化 ───
@@ -243,7 +243,7 @@ class LynnMobilePlayer {
           console.warn('YouTube 播放器報錯 (代碼 ' + e.data + ')');
           if (!this.lastErrorTime || Date.now() - this.lastErrorTime > 3000) {
             this.lastErrorTime = Date.now();
-            this.showToast('⚠️ 該版本受限，為您切換下一首');
+            this.showToast('該版本播放受限，為您切換下一首');
           }
           clearTimeout(this.errorTimer);
           this.errorTimer = setTimeout(() => {
@@ -259,7 +259,7 @@ class LynnMobilePlayer {
 
   onYTStateChange(e) {
     if (e.data === YT.PlayerState.PLAYING) {
-      this.elBtnPlay.textContent = '⏸️';
+      this.elBtnPlay.innerHTML = '<i class="fa-solid fa-pause"></i>';
       if ('mediaSession' in navigator) {
         navigator.mediaSession.playbackState = 'playing';
       }
@@ -272,19 +272,19 @@ class LynnMobilePlayer {
         }
       }, 800);
     } else if (e.data === YT.PlayerState.PAUSED) {
-      // 🌟 切歌過渡期：若剛載入新歌，YouTube 會先短暫觸發 PAUSED，此時強制自動起播！
+      // 切歌過渡期：若剛載入新歌，YouTube 會先短暫觸發 PAUSED，此時強制自動起播！
       if (this.isSwitchingTrack) {
         if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
           this.ytPlayer.playVideo();
         }
       } else {
-        this.elBtnPlay.textContent = '▶️';
+        this.elBtnPlay.innerHTML = '<i class="fa-solid fa-play"></i>';
         if ('mediaSession' in navigator) {
           navigator.mediaSession.playbackState = 'paused';
         }
       }
     } else if (e.data === 5 /* CUED */ || e.data === -1 /* UNSTARTED */ || e.data === 3 /* BUFFERING */) {
-      // 🌟 當新歌載入進入 CUED、BUFFERING 或 UNSTARTED，立即自動起播
+      // 當新歌載入進入 CUED、BUFFERING 或 UNSTARTED，立即自動起播
       if (this.isSwitchingTrack) {
         if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
           this.ytPlayer.playVideo();
@@ -343,7 +343,7 @@ class LynnMobilePlayer {
   async doSearch() {
     const q = this.elSearchInput.value.trim();
     if (!q) return;
-    this.showToast('🔍 搜尋中...');
+    this.showToast('搜尋中...');
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&multi=1`);
       const data = await res.json();
@@ -352,10 +352,10 @@ class LynnMobilePlayer {
       } else if (data.song) {
         this.loadAndPlaySong(data.song);
       } else {
-        this.showToast('❌ 找不到歌曲');
+        this.showToast('找不到符合歌曲');
       }
     } catch (e) {
-      this.showToast('❌ 搜尋失敗: ' + e.message);
+      this.showToast('搜尋失敗: ' + e.message);
     }
   }
 
@@ -380,7 +380,7 @@ class LynnMobilePlayer {
 
   async searchAndPlay(keyword) {
     try {
-      this.elSongTitle.textContent = `🔍 正在搜尋：${keyword}`;
+      this.elSongTitle.textContent = `正在搜尋：${keyword}`;
       const res = await fetch(`/api/search?q=${encodeURIComponent(keyword)}`);
       const data = await res.json();
       if (data.song) {
@@ -400,7 +400,7 @@ class LynnMobilePlayer {
     }
 
     this.isSwitchingTrack = true;
-    this.elBtnPlay.textContent = '⏸️';
+    this.elBtnPlay.innerHTML = '<i class="fa-solid fa-pause"></i>';
     clearTimeout(this.switchTrackTimeout);
     this.switchTrackTimeout = setTimeout(() => {
       this.isSwitchingTrack = false;
@@ -417,14 +417,14 @@ class LynnMobilePlayer {
     this.elSongArtist.textContent = song.artist;
     this.updateFavButtonUI();
     this.updateMediaSession(song.title, song.artist);
-    this.renderLyricsPlaceholder('⚡ 正在載入動態歌詞與音樂...');
+    this.renderLyricsPlaceholder('正在載入動態歌詞與音樂...');
 
     // 1. 直接由手機原生調用 YouTube 官方播放 (免受機房封鎖)
     try {
       this.ytPlayer.loadVideoById(song.id, 0);
       this.ytPlayer.playVideo();
 
-      // 🌟 強化自動起播輪詢迴圈：每 200ms 檢查一次，未播放則強制 playVideo，持續 3.6 秒
+      // 強化自動起播輪詢迴圈：每 200ms 檢查一次，未播放則強制 playVideo，持續 3.6 秒
       clearInterval(this.autoPlayInterval);
       let attempts = 0;
       this.autoPlayInterval = setInterval(() => {
@@ -465,10 +465,10 @@ class LynnMobilePlayer {
       if (data.lyrics && Object.keys(data.lyrics).length > 0) {
         this.parseLyrics(data.lyrics);
       } else {
-        this.renderLyricsPlaceholder('🎵 (純音樂 / 暫無動態歌詞)');
+        this.renderLyricsPlaceholder('(純音樂 / 暫無動態歌詞)');
       }
     } catch (e) {
-      this.renderLyricsPlaceholder('🎵 (純音樂 / 暫無動態歌詞)');
+      this.renderLyricsPlaceholder('(純音樂 / 暫無動態歌詞)');
     }
   }
 
@@ -619,15 +619,15 @@ class LynnMobilePlayer {
   toggleMode() {
     if (this.mode === 'RADIO') {
       this.mode = 'SINGLE';
-      this.elBtnMode.textContent = '🔂 單曲';
+      this.elBtnMode.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 單曲循環';
       this.showToast('模式：單曲循環');
     } else if (this.mode === 'SINGLE') {
       this.mode = 'LOOP';
-      this.elBtnMode.textContent = '🔁 佇列';
+      this.elBtnMode.innerHTML = '<i class="fa-solid fa-repeat"></i> 佇列循環';
       this.showToast('模式：佇列循環');
     } else {
       this.mode = 'RADIO';
-      this.elBtnMode.textContent = '🔄 電台';
+      this.elBtnMode.innerHTML = '<i class="fa-solid fa-shuffle"></i> 隨機電台';
       this.showToast('模式：隨機電台');
     }
   }
@@ -638,7 +638,7 @@ class LynnMobilePlayer {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  // ─── ❤️ 我的最愛 (localStorage: lynn_favorites) ───
+  // ─── 我的最愛 (localStorage: lynn_favorites) ───
   loadFavorites() {
     try {
       const data = localStorage.getItem('lynn_favorites');
@@ -664,55 +664,77 @@ class LynnMobilePlayer {
     const idx = this.favorites.findIndex(f => f.id === vid);
     if (idx >= 0) {
       this.favorites.splice(idx, 1);
-      this.showToast('🤍 已移出我的最愛');
+      this.showToast('已從我的最愛移除');
     } else {
       this.favorites.push({ ...this.currentSong });
-      this.showToast('❤️ 已加入我的最愛');
+      this.showToast('已加入我的最愛');
     }
     this.saveFavorites();
   }
 
   updateFavButtonUI() {
     if (!this.currentSong) {
-      this.elFavToggle.textContent = '🤍';
+      this.elFavToggle.innerHTML = '<i class="fa-regular fa-heart"></i>';
       return;
     }
-    this.elFavToggle.textContent = this.isFavorite(this.currentSong.id) ? '❤️' : '🤍';
+    const isFav = this.isFavorite(this.currentSong.id);
+    this.elFavToggle.innerHTML = isFav
+      ? '<i class="fa-solid fa-heart"></i>'
+      : '<i class="fa-regular fa-heart"></i>';
   }
 
   openFavDrawer() {
     this.elFavList.innerHTML = '';
     this.elFavCount.textContent = this.favorites.length;
     if (this.favorites.length === 0) {
-      this.elFavList.innerHTML = '<p style="text-align:center; color:#777; margin-top:30px;">尚無收藏歌曲</p>';
+      this.elFavList.innerHTML = '<p class="empty-hint">尚無收藏歌曲，聽歌時點擊愛心即可收藏</p>';
     } else {
       this.favorites.forEach((song, idx) => {
         const item = document.createElement('div');
-        item.className = 'list-item';
+        const isPlayingThis = this.currentSong && this.currentSong.id === song.id;
+        item.className = `list-item ${isPlayingThis ? 'active-playing' : ''}`;
         item.innerHTML = `
+          <button class="item-play-btn" title="播放這首歌曲"><i class="fa-solid fa-play"></i></button>
           <div class="list-item-info">
-            <div class="list-item-title">${song.title}</div>
+            <div class="list-item-title">${idx + 1}. ${song.title}</div>
             <div class="list-item-artist">${song.artist}</div>
           </div>
-          <button class="list-item-del" title="刪除">🗑️</button>
+          <button class="list-item-del" title="移除收藏"><i class="fa-regular fa-trash-can"></i></button>
         `;
-        item.querySelector('.list-item-info').addEventListener('click', () => {
+
+        const playFavSong = () => {
+          const subsequent = this.favorites.slice(idx + 1);
+          const preceding = this.favorites.slice(0, idx);
+          this.queue = [...subsequent, ...preceding];
+          this.renderQueueUI();
           this.elFavDrawer.classList.add('hidden');
           this.loadAndPlaySong(song);
+          this.showToast(`播放：${song.title}`);
+        };
+
+        item.querySelector('.item-play-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          playFavSong();
         });
+
+        item.querySelector('.list-item-info').addEventListener('click', () => {
+          playFavSong();
+        });
+
         item.querySelector('.list-item-del').addEventListener('click', (e) => {
           e.stopPropagation();
           this.favorites.splice(idx, 1);
           this.saveFavorites();
           this.openFavDrawer();
         });
+
         this.elFavList.appendChild(item);
       });
     }
     this.elFavDrawer.classList.remove('hidden');
   }
 
-  // ─── 📂 自訂歌單 (localStorage: lynn_custom_playlists) ───
+  // ─── 自訂歌單 (localStorage: lynn_custom_playlists) ───
   loadCustomPlaylists() {
     try {
       const data = localStorage.getItem('lynn_custom_playlists');
@@ -728,7 +750,7 @@ class LynnMobilePlayer {
 
   openAddPlaylistModal() {
     if (!this.currentSong) {
-      this.showToast('⚠️ 目前沒有正在播放的歌曲');
+      this.showToast('目前沒有正在播放的歌曲');
       return;
     }
     this.elNewPlaylistName.value = '';
@@ -740,14 +762,14 @@ class LynnMobilePlayer {
     this.elModalPlaylistOptions.innerHTML = '';
     const playlistNames = Object.keys(this.customPlaylists);
     if (playlistNames.length === 0) {
-      this.elModalPlaylistOptions.innerHTML = '<p style="text-align:center; color:#777; font-size:12px; padding:10px;">尚未建立任何自訂歌單</p>';
+      this.elModalPlaylistOptions.innerHTML = '<p class="empty-hint" style="padding: 10px;">尚未建立任何自訂歌單</p>';
       return;
     }
     playlistNames.forEach(name => {
       const btn = document.createElement('button');
       btn.className = 'modal-pl-btn';
       const count = this.customPlaylists[name].length;
-      btn.innerHTML = `<span>📁 ${name}</span><span style="font-size:12px; color:#00e5ff;">(${count} 首)</span>`;
+      btn.innerHTML = `<span><i class="fa-regular fa-folder" style="color: var(--accent); margin-right: 8px;"></i>${name}</span><span style="font-size:12px; color: var(--accent);">(${count} 首)</span>`;
       btn.addEventListener('click', () => {
         this.addSongToPlaylist(name, this.currentSong);
         this.elAddPlaylistModal.classList.add('hidden');
@@ -759,7 +781,7 @@ class LynnMobilePlayer {
   createAndAddToPlaylist() {
     const name = this.elNewPlaylistName.value.trim();
     if (!name) {
-      this.showToast('⚠️ 請輸入歌單名稱');
+      this.showToast('請輸入歌單名稱');
       return;
     }
     if (!this.customPlaylists[name]) {
@@ -775,12 +797,12 @@ class LynnMobilePlayer {
     }
     const list = this.customPlaylists[playlistName];
     if (list.some(s => s.id === song.id)) {
-      this.showToast(`⚠️ 歌曲已在「${playlistName}」中`);
+      this.showToast(`歌曲已在「${playlistName}」中`);
       return;
     }
     list.push({ ...song });
     this.saveCustomPlaylists();
-    this.showToast(`✔ 已加入「${playlistName}」`);
+    this.showToast(`已加入「${playlistName}」`);
   }
 
   openPlaylistsDrawer() {
@@ -792,7 +814,7 @@ class LynnMobilePlayer {
     this.elPlaylistsList.innerHTML = '';
     const playlistNames = Object.keys(this.customPlaylists);
     if (playlistNames.length === 0) {
-      this.elPlaylistsList.innerHTML = '<p style="text-align:center; color:#777; margin-top:30px;">尚無自訂歌單，點擊「➕」按鈕即可新增！</p>';
+      this.elPlaylistsList.innerHTML = '<p class="empty-hint">尚無自訂歌單，點擊「+」按鈕即可新增！</p>';
       return;
     }
 
@@ -803,16 +825,17 @@ class LynnMobilePlayer {
 
       card.innerHTML = `
         <div class="playlist-card-header">
-          <div>
-            <span class="playlist-card-title">📁 ${name}</span>
-            <span class="playlist-card-count">(${songs.length} 首)</span>
+          <div class="playlist-card-title-group">
+            <i class="fa-regular fa-folder" style="color: var(--accent);"></i>
+            <span class="playlist-card-title">${name}</span>
+            <span class="playlist-card-count">${songs.length} 首</span>
           </div>
           <div class="playlist-card-actions">
-            <button class="btn-sm btn-play-pl">▶️ 播放整張</button>
-            <button class="btn-sm btn-del-pl" style="color:#ff5252;">🗑️</button>
+            <button class="btn-sm btn-play-pl" title="播放整張歌單"><i class="fa-solid fa-play"></i> 播放整張</button>
+            <button class="btn-sm btn-del-pl" title="刪除整張歌單"><i class="fa-regular fa-trash-can"></i></button>
           </div>
         </div>
-        <div class="playlist-songs-list hidden"></div>
+        <div class="playlist-songs-list"></div>
       `;
 
       const header = card.querySelector('.playlist-card-header');
@@ -820,9 +843,8 @@ class LynnMobilePlayer {
       const btnPlayAll = card.querySelector('.btn-play-pl');
       const btnDelPl = card.querySelector('.btn-del-pl');
 
-      // 展開/收合
-      header.addEventListener('click', (e) => {
-        if (e.target.closest('button')) return;
+      // 點擊標題群組展開/收合
+      header.querySelector('.playlist-card-title-group').addEventListener('click', () => {
         songsList.classList.toggle('hidden');
       });
 
@@ -830,14 +852,14 @@ class LynnMobilePlayer {
       btnPlayAll.addEventListener('click', (e) => {
         e.stopPropagation();
         if (songs.length === 0) {
-          this.showToast('⚠️ 歌單內目前沒有歌曲');
+          this.showToast('歌單內目前沒有歌曲');
           return;
         }
         this.queue = [...songs.slice(1)];
         this.renderQueueUI();
         this.elPlaylistsDrawer.classList.add('hidden');
         this.loadAndPlaySong(songs[0]);
-        this.showToast(`🚀 正在播放歌單「${name}」`);
+        this.showToast(`正在播放歌單「${name}」`);
       });
 
       // 刪除整張歌單
@@ -847,34 +869,55 @@ class LynnMobilePlayer {
           delete this.customPlaylists[name];
           this.saveCustomPlaylists();
           this.renderPlaylistsDrawer();
-          this.showToast(`🗑️ 已刪除歌單「${name}」`);
+          this.showToast(`已刪除歌單「${name}」`);
         }
       });
 
-      // 渲染歌單內的每一首歌
+      // 渲染歌單內的每一首歌，提供自由點選播放功能
       if (songs.length === 0) {
-        songsList.innerHTML = '<p style="font-size:12px; color:#666; padding:8px;">(空歌單)</p>';
+        songsList.innerHTML = '<p class="empty-hint" style="padding: 10px;">(空歌單)</p>';
       } else {
         songs.forEach((s, sIdx) => {
           const sItem = document.createElement('div');
-          sItem.className = 'list-item';
+          const isPlayingThis = this.currentSong && this.currentSong.id === s.id;
+          sItem.className = `list-item ${isPlayingThis ? 'active-playing' : ''}`;
           sItem.innerHTML = `
+            <button class="item-play-btn" title="播放這首歌曲"><i class="fa-solid fa-play"></i></button>
             <div class="list-item-info">
               <div class="list-item-title">${sIdx + 1}. ${s.title}</div>
               <div class="list-item-artist">${s.artist}</div>
             </div>
-            <button class="list-item-del" title="移出">✕</button>
+            <button class="list-item-del" title="移出歌單"><i class="fa-solid fa-xmark"></i></button>
           `;
-          sItem.querySelector('.list-item-info').addEventListener('click', () => {
+
+          // 核心功能：自訂歌單點選播放哪一首歌，並自動將該歌單後續歌曲排入即將播放清單
+          const playThisPlaylistSong = () => {
+            const subsequent = songs.slice(sIdx + 1);
+            const preceding = songs.slice(0, sIdx);
+            this.queue = [...subsequent, ...preceding];
+            this.renderQueueUI();
             this.elPlaylistsDrawer.classList.add('hidden');
             this.loadAndPlaySong(s);
+            this.showToast(`播放：${s.title}`);
+          };
+
+          sItem.querySelector('.item-play-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            playThisPlaylistSong();
           });
+
+          sItem.querySelector('.list-item-info').addEventListener('click', () => {
+            playThisPlaylistSong();
+          });
+
           sItem.querySelector('.list-item-del').addEventListener('click', (ev) => {
             ev.stopPropagation();
             songs.splice(sIdx, 1);
             this.saveCustomPlaylists();
             this.renderPlaylistsDrawer();
+            this.showToast(`已從歌單移出：${s.title}`);
           });
+
           songsList.appendChild(sItem);
         });
       }
@@ -883,7 +926,7 @@ class LynnMobilePlayer {
     });
   }
 
-  // ─── 📜 即將播放佇列 ───
+  // ─── 即將播放佇列 ───
   openQueueDrawer() {
     this.renderQueueUI();
     this.elQueueDrawer.classList.remove('hidden');
@@ -893,41 +936,54 @@ class LynnMobilePlayer {
     const btnQueue = document.getElementById('btn-queue-open');
     if (btnQueue) {
       btnQueue.innerHTML = this.queue.length > 0
-        ? `📜<span style="font-size:10px; background:#00f5d4; color:#000; border-radius:8px; padding:1px 4px; font-weight:bold; vertical-align:top; margin-left:2px;">${this.queue.length}</span>`
-        : '📜';
+        ? `<i class="fa-solid fa-list-ul"></i><span class="badge-counter">${this.queue.length}</span>`
+        : '<i class="fa-solid fa-list-ul"></i>';
     }
 
     this.elQueueList.innerHTML = '';
     if (this.queue.length === 0) {
-      this.elQueueList.innerHTML = '<p style="text-align:center; color:#777; margin-top:30px;">佇列目前為空</p>';
+      this.elQueueList.innerHTML = '<p class="empty-hint">佇列目前為空</p>';
       return;
     }
     this.queue.forEach((song, idx) => {
       const item = document.createElement('div');
       item.className = 'list-item';
       item.innerHTML = `
+        <button class="item-play-btn" title="立即播放此首"><i class="fa-solid fa-play"></i></button>
         <div class="list-item-info">
           <div class="list-item-title">${idx + 1}. ${song.title}</div>
           <div class="list-item-artist">${song.artist}</div>
         </div>
-        <button class="list-item-del" title="移出">✕</button>
+        <button class="list-item-del" title="移出佇列"><i class="fa-solid fa-xmark"></i></button>
       `;
-      item.querySelector('.list-item-info').addEventListener('click', () => {
+
+      const playQueueSong = () => {
         this.elQueueDrawer.classList.add('hidden');
         this.queue.splice(idx, 1);
         this.loadAndPlaySong(song);
+      };
+
+      item.querySelector('.item-play-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        playQueueSong();
       });
+
+      item.querySelector('.list-item-info').addEventListener('click', () => {
+        playQueueSong();
+      });
+
       item.querySelector('.list-item-del').addEventListener('click', (e) => {
         e.stopPropagation();
         this.queue.splice(idx, 1);
         this.renderQueueUI();
       });
+
       this.elQueueList.appendChild(item);
     });
   }
 
   async regenerateRandomQueue() {
-    this.showToast('🎲 正在隨機生成全新多元歌手歌單...');
+    this.showToast('正在隨機生成全新多元歌手歌單...');
     try {
       const curArt = this.currentSong ? this.currentSong.artist : '';
       const res = await fetch(`/api/random_queue?exclude=${encodeURIComponent(curArt)}`);
@@ -935,7 +991,7 @@ class LynnMobilePlayer {
       if (data.tracks && data.tracks.length > 0) {
         this.queue = data.tracks;
         this.renderQueueUI();
-        this.showToast(`🎉 已生成 ${data.tracks.length} 首不同歌手的全新電台！`);
+        this.showToast(`已生成 ${data.tracks.length} 首不同歌手的全新電台！`);
         return;
       }
     } catch (e) {
@@ -961,7 +1017,7 @@ class LynnMobilePlayer {
       }
     }
     this.renderQueueUI();
-    this.showToast('🔀 佇列已打亂');
+    this.showToast('佇列已打亂');
   }
 
   showToast(msg) {
