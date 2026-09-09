@@ -47,6 +47,8 @@ class LynnRequestHandler(SimpleHTTPRequestHandler):
             self.handle_trending()
         elif path == '/api/stream':
             self.handle_stream(query)
+        elif path == '/api/test_extract':
+            self.handle_test_extract(query)
         elif path == '/api/radio':
             self.handle_radio(query)
         elif path == '/api/lyrics':
@@ -103,6 +105,29 @@ class LynnRequestHandler(SimpleHTTPRequestHandler):
             self.send_json({'url': url})
         except Exception as e:
             self.send_json({'error': str(e)}, status=500)
+
+    def handle_test_extract(self, query):
+        import time
+        vid = query.get('vid', ['kJQP7kiw5Fk'])[0].strip()
+        title = query.get('title', [''])[0].strip()
+        t0 = time.time()
+        try:
+            url = api_engine.stream(vid, song_title=title if title else None)
+            cost = round(time.time() - t0, 2)
+            self.send_json({
+                'success': True,
+                'time_seconds': cost,
+                'vid': vid,
+                'url_prefix': url[:80] + '...' if url else None
+            })
+        except Exception as e:
+            cost = round(time.time() - t0, 2)
+            self.send_json({
+                'success': False,
+                'time_seconds': cost,
+                'vid': vid,
+                'error': str(e)
+            }, status=500)
 
     def handle_radio(self, query):
         vid = query.get('vid', [''])[0].strip()

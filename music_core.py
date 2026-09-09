@@ -84,67 +84,68 @@ class MusicAPI:
             return []
 
     def stream(self, vid, song_title=None):
+        # 1. 優先嘗試官方純音訊格式 140 (M4A AAC-LC 128kbps, 無視訊軌，支援 iOS 背景鎖屏長播)
+        try:
+            ydl_opts = {
+                'format': '140/bestaudio[ext=m4a]/bestaudio[vcodec=none]/ba/bestaudio/best',
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'geo_bypass': True,
+                'socket_timeout': 15,
+                'http_headers': self.base_headers
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as y:
+                info = y.extract_info(f'https://www.youtube.com/watch?v={vid}', download=False)
+                if info and 'url' in info:
+                    return info['url']
+        except Exception as e:
+            pass
+
+        # 2. 備援嘗試：輕量客戶端 (tv / android+web)
         client_configs = [
-            {'player_client': ['android'], 'player_skip': ['webpage', 'configs']},
-            {'player_client': ['ios'], 'player_skip': ['webpage', 'configs']},
-            {'player_client': ['android_creator'], 'player_skip': ['webpage', 'configs']},
-            {'player_client': ['tv'], 'player_skip': ['webpage']},
-            {'player_client': ['android', 'web']},
-            {'player_client': ['web']}
+            {'player_client': ['tv']},
+            {'player_client': ['android', 'web']}
         ]
-
-        formats_to_try = ['bestaudio/best', 'ba/b', 'best']
-
-        last_error = None
         for cfg in client_configs:
-            for fmt in formats_to_try:
+            try:
                 ydl_opts = {
-                    'format': fmt,
+                    'format': '140/bestaudio/best',
                     'quiet': True,
                     'no_warnings': True,
                     'nocheckcertificate': True,
                     'geo_bypass': True,
-                    'extractor_args': {
-                        'youtube': cfg
-                    },
+                    'socket_timeout': 15,
+                    'extractor_args': {'youtube': cfg},
                     'http_headers': self.base_headers
                 }
-                try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as y:
-                        info = y.extract_info(f'https://www.youtube.com/watch?v={vid}', download=False)
-                        if info and 'url' in info:
-                            return info['url']
-                except Exception as e:
-                    last_error = e
-                    continue
+                with yt_dlp.YoutubeDL(ydl_opts) as y:
+                    info = y.extract_info(f'https://www.youtube.com/watch?v={vid}', download=False)
+                    if info and 'url' in info:
+                        return info['url']
+            except Exception:
+                continue
 
-        # 如果此 videoId 無法提取，且有歌名，嘗試自動搜尋替代影片
+        # 3. 歌曲替代搜尋備援
         if song_title:
             try:
-                print(f"原影片 ID {vid} 無法串流，嘗試為您搜尋替代影片: {song_title}")
                 alt = self.search_song(song_title)
                 if alt and alt['id'] != vid:
-                    for cfg in client_configs[:2]:
-                        ydl_opts = {
-                            'format': 'bestaudio/best',
-                            'quiet': True,
-                            'no_warnings': True,
-                            'nocheckcertificate': True,
-                            'geo_bypass': True,
-                            'extractor_args': {'youtube': cfg},
-                            'http_headers': self.base_headers
-                        }
-                        try:
-                            with yt_dlp.YoutubeDL(ydl_opts) as y:
-                                info = y.extract_info(f"https://www.youtube.com/watch?v={alt['id']}", download=False)
-                                if info and 'url' in info:
-                                    return info['url']
-                        except:
-                            continue
-            except:
+                    ydl_opts = {
+                        'format': '140/bestaudio/best',
+                        'quiet': True,
+                        'no_warnings': True,
+                        'socket_timeout': 15,
+                        'http_headers': self.base_headers
+                    }
+                    with yt_dlp.YoutubeDL(ydl_opts) as y:
+                        info = y.extract_info(f"https://www.youtube.com/watch?v={alt['id']}", download=False)
+                        if info and 'url' in info:
+                            return info['url']
+            except Exception:
                 pass
 
-        raise RuntimeError(f"YouTube 串流解析失敗 ({last_error})")
+        raise RuntimeError(f"YouTube 串流提取失敗 (Video ID: {vid})")
 
     def radio(self, vid, artist='', title=''):
         """
