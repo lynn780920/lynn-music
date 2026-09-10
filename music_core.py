@@ -20,16 +20,52 @@ gettext.translation = lambda *args, **kwargs: gettext.NullTranslations()
 from ytmusicapi import YTMusic
 
 DIVERSE_POPULAR_ARTISTS = [
-    '周杰倫', '告五人', '韋禮安', '五月天', '鄧紫棋', 
-    '蔡依林', '林俊傑', '張惠妹', '陳奕迅', '孫燕姿', 
-    '梁靜茹', '田馥甄', '盧廣仲', '徐佳瑩', '莫文蔚', 
-    '李榮浩', '伍佰', '八三夭', '理想混蛋', '動力火車', 
-    '蘇打綠', '楊丞琳', '蕭敬騰', '陶喆', '王力宏', 
-    '草東沒有派對', '落日飛車', '茄子蛋', '戴佩妮', '丁噹', 
-    '艾怡良', '郁可唯', '頑童MJ116', '瘦子E.SO', '高爾宣', 
-    '美秀集團', '麋先生', '宇宙人', '滅火器', '李聖傑', 
-    '林宥嘉', '蕭煌奇', '汪蘇瀧', '張震嶽', '信樂團', 
-    '張韶涵', '王心凌', '潘瑋柏', '光良', '品冠'
+    # 華語歌壇天王天后
+    '周杰倫', '林俊傑', '陳奕迅', '蔡依林', '張惠妹', '王菲', '孫燕姿', '梁靜茹', 
+    '蕭亞軒', '莫文蔚', '田馥甄', 'S.H.E', '王力宏', '陶喆', '潘瑋柏', '楊丞琳', 
+    '張韶涵', '王心凌', '李榮浩', '薛之謙', '鄧紫棋', '華晨宇', '汪蘇瀧', '毛不易',
+    
+    # 經典傳奇唱將
+    '伍佰', '李宗盛', '羅大佑', '張學友', '劉德華', '黎明', '郭富城', '信樂團', 
+    '動力火車', '迪克牛仔', '齊秦', '張宇', '游鴻明', '伍思凱', '張雨生', '趙傳', 
+    '任賢齊', '周華健', '陶晶瑩', '張震嶽', '庾澄慶', '黃品源', '杜德偉', '王傑',
+    
+    # 抒情天后與金曲歌后
+    '戴佩妮', '蔡健雅', '范瑋琪', '梁詠琪', '許茹芸', '彭佳慧', '溫嵐', '辛曉琪', 
+    '萬芳', '蘇慧倫', '許美靜', '順子', '郁可唯', '丁噹', '家家', '白安', 
+    '郭靜', '曾沛慈', 'A-Lin', '閻奕格', '孫盛希', '洪佩瑜',
+    
+    # 實力派唱作男歌手
+    '韋禮安', '盧廣仲', '林宥嘉', '徐佳瑩', '艾怡良', '蕭敬騰', '方大同', '吳青峰', 
+    '蘇打綠', '李聖傑', '品冠', '光良', '曹格', '阿杜', '蕭煌奇', '胡夏', 
+    '嚴爵', '畢書盡', '李友廷', '柏霖', '持修', '壞特?te', '鄭興',
+    
+    # 人氣樂團與獨立樂隊
+    '五月天', '滅火器', '草東沒有派對', '落日飛車', '茄子蛋', '美秀集團', '麋先生', 
+    '宇宙人', '八三夭', '理想混蛋', '脆樂團', '告五人', '芒果醬', '溫蒂漫步', 
+    '冰球樂團', '甜約翰', '溫室雜草', '好樂團', '守夜人', '荷爾蒙少年', '椅子樂團', 
+    '拍謝少年', '傻子與白痴', '康士坦的變化球', '老王樂隊', '旺福', '怕胖團',
+    
+    # 嘻哈、R&B 與潮流都會
+    '頑童MJ116', '瘦子E.SO', '高爾宣', '熊仔', '熱狗MC HotDog', '蛋堡', '國蛋', 
+    'Leo王', 'ØZI', '9m88', 'J.Sheon', 'Karencici', '周湯豪', '派偉俊', '玖壹壹',
+    
+    # 療癒民謠與熱門新聲
+    '承桓', '菲道爾', '任然', '于文文', '隊長', '顏人中', '房東的貓', '永彬Ryan.B', 
+    '王貳浪', '焦邁奇', '阿冗', '藍心羽', '井朧', '是七叔呢'
+]
+
+POPULAR_DISCOVERY_THEMES = [
+    '華語流行新歌',
+    '台灣熱門單曲',
+    '經典華語金曲',
+    '2000年代華語金曲',
+    '90年代華語經典',
+    'KKBOX 華語單曲',
+    'KTV 必點華語排行',
+    '華語抒情慢歌',
+    '華語熱門流行歌',
+    '台灣流行金曲'
 ]
 
 class MusicAPI:
@@ -71,6 +107,30 @@ class MusicAPI:
             }
         except Exception as e:
             print(f"搜尋歌曲失敗: {e}")
+            return None
+
+    def search_random_song(self, text):
+        """搜尋某藝人或主題，並隨機挑選其排名前列的代表性歌曲（而非每次都固定返回第一首）"""
+        try:
+            r = self.yt.search(text, filter='songs')
+            if not r:
+                r = self.yt.search(text, filter='videos')
+            if not r:
+                return None
+            valid = []
+            for s in r[:8]:
+                title = s.get('title', '')
+                if not self.is_spam_title(title) and 'videoId' in s:
+                    valid.append({
+                        'id': s['videoId'],
+                        'title': title,
+                        'artist': s['artists'][0]['name'] if s.get('artists') else text
+                    })
+            if valid:
+                return random.choice(valid)
+            return None
+        except Exception as e:
+            print(f"隨機搜尋歌曲失敗 ({text}): {e}")
             return None
 
     def search_multi(self, text, limit=10):
@@ -159,23 +219,86 @@ class MusicAPI:
 
         raise RuntimeError(f"YouTube 串流解析失敗 ({last_error})")
 
-    def generate_diverse_queue(self, limit=25, exclude_artist=''):
-        """隨機生成絕不重複歌手的電台佇列（每位歌手在清單中僅出現 1 首）"""
+    def generate_diverse_queue(self, limit=25, exclude_artist='', exclude_artists=None):
+        """
+        隨機生成絕不重複歌手的多元電台佇列：
+        結合探索熱門主題即時搜尋 + 140+ 華語實力歌手代表作隨機選曲，
+        確保每次刷新均呈現截然不同的全新曲庫，徹底杜絕「每次點選都差不多」的問題。
+        """
         seen_artists = set()
         if exclude_artist and exclude_artist != '未知歌手':
             seen_artists.add(exclude_artist.lower().strip())
 
-        candidates = [a for a in DIVERSE_POPULAR_ARTISTS if a.lower().strip() not in seen_artists]
-        random.shuffle(candidates)
+        if exclude_artists:
+            for ea in exclude_artists:
+                c = ea.lower().strip()
+                if c and c != '未知歌手':
+                    seen_artists.add(c)
 
         tracks = []
-        for art in candidates:
+        seen_ids = set()
+
+        # 1. 隨機抽選 2 個不同熱門華語主題進行探索搜尋（快速獲取 20+ 首不同藝人的熱播金曲）
+        chosen_themes = random.sample(POPULAR_DISCOVERY_THEMES, 2)
+        for theme in chosen_themes:
             if len(tracks) >= limit:
                 break
-            song = self.search_song(art)
-            if song and song.get('id'):
-                tracks.append(song)
-                seen_artists.add(art.lower().strip())
+            try:
+                results = self.yt.search(theme, filter='songs')
+                random.shuffle(results)
+                for item in results:
+                    item_id = item.get('videoId')
+                    if not item_id or item_id in seen_ids:
+                        continue
+                    art = item['artists'][0]['name'] if item.get('artists') else '未知歌手'
+                    clean_art = art.lower().strip()
+                    if clean_art in seen_artists or clean_art == '未知歌手':
+                        continue
+                    title_item = item.get('title', '未知歌曲')
+                    if self.is_spam_title(title_item):
+                        continue
+
+                    tracks.append({
+                        'title': title_item,
+                        'artist': art,
+                        'id': item_id
+                    })
+                    seen_artists.add(clean_art)
+                    seen_ids.add(item_id)
+                    if len(tracks) >= limit:
+                        break
+            except Exception as e:
+                print(f"探索主題搜尋異常 ({theme}): {e}")
+
+        # 2. 若筆數尚未達到 limit，從 140+ 實力藝人庫中隨機挑選（每位歌手隨機抽樣熱門非重複單曲）
+        if len(tracks) < limit:
+            candidates = [a for a in DIVERSE_POPULAR_ARTISTS if a.lower().strip() not in seen_artists]
+            random.shuffle(candidates)
+            needed = limit - len(tracks)
+            for art in candidates[:needed + 5]:
+                if len(tracks) >= limit:
+                    break
+                song = self.search_random_song(art)
+                if song and song.get('id') and song['id'] not in seen_ids:
+                    tracks.append(song)
+                    seen_artists.add(art.lower().strip())
+                    seen_ids.add(song['id'])
+
+        # 3. 極端保護：若候選名單耗盡仍不足 limit，放寬已排除藝人隨機補充其未播放過的其他歌曲
+        if len(tracks) < limit:
+            fallback = list(DIVERSE_POPULAR_ARTISTS)
+            random.shuffle(fallback)
+            for art in fallback:
+                if len(tracks) >= limit:
+                    break
+                clean_art = art.lower().strip()
+                if clean_art in seen_artists:
+                    continue
+                song = self.search_random_song(art)
+                if song and song.get('id') and song['id'] not in seen_ids:
+                    tracks.append(song)
+                    seen_artists.add(clean_art)
+                    seen_ids.add(song['id'])
 
         random.shuffle(tracks)
         return tracks
@@ -221,7 +344,7 @@ class MusicAPI:
         except Exception:
             pass
 
-        # 2. 若推薦筆數不足，以隨機多元熱門歌手補足（每位歌手嚴格只取 1 首）
+        # 2. 若推薦筆數不足，以隨機多元熱門歌手補足（每位歌手嚴格只取 1 首，且隨機抽樣熱門曲）
         if len(tracks) < limit:
             needed = limit - len(tracks)
             cand_pool = [a for a in DIVERSE_POPULAR_ARTISTS if a.lower().strip() not in seen_artists]
@@ -230,7 +353,7 @@ class MusicAPI:
                 if len(tracks) >= limit:
                     break
                 try:
-                    song = self.search_song(cand_art)
+                    song = self.search_random_song(cand_art)
                     if song and song.get('id') and song['id'] not in seen_ids:
                         tracks.append(song)
                         seen_artists.add(cand_art.lower().strip())

@@ -141,8 +141,10 @@ class LynnRequestHandler(SimpleHTTPRequestHandler):
 
     def handle_random_queue(self, query):
         exclude = query.get('exclude', [''])[0].strip()
+        raw_exclude_artists = query.get('exclude_artists', [''])[0].strip()
+        exclude_artists = [a.strip() for a in raw_exclude_artists.split(',') if a.strip()] if raw_exclude_artists else None
         try:
-            tracks = api_engine.generate_diverse_queue(limit=25, exclude_artist=exclude)
+            tracks = api_engine.generate_diverse_queue(limit=25, exclude_artist=exclude, exclude_artists=exclude_artists)
             self.send_json({'tracks': tracks})
         except Exception as e:
             self.send_json({'tracks': []})
