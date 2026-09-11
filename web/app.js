@@ -42,6 +42,8 @@ class LynnMobilePlayer {
     this.customPlaylists = this.loadCustomPlaylists();
     this.mode = 'RADIO'; // 'RADIO', 'SINGLE', 'LOOP'
     this.wakeLock = null;
+    this.queueSortable = null;
+    this.favSortable = null;
 
     this.initElements();
     this.initEventListeners();
@@ -710,6 +712,7 @@ class LynnMobilePlayer {
             <div class="list-item-artist">${song.artist}</div>
           </div>
           <button class="list-item-del" title="移除收藏"><i class="fa-regular fa-trash-can"></i></button>
+          <div class="drag-handle" title="按住拖曳調整順序"><i class="fa-solid fa-grip-vertical"></i></div>
         `;
 
         const playFavSong = () => {
@@ -740,6 +743,30 @@ class LynnMobilePlayer {
 
         this.elFavList.appendChild(item);
       });
+
+      if (typeof Sortable !== 'undefined' && this.favorites.length > 0) {
+        if (this.favSortable) {
+          this.favSortable.destroy();
+          this.favSortable = null;
+        }
+        this.favSortable = new Sortable(this.elFavList, {
+          handle: '.drag-handle',
+          animation: 180,
+          ghostClass: 'sortable-ghost',
+          chosenClass: 'sortable-chosen',
+          dragClass: 'sortable-drag',
+          touchStartThreshold: 4,
+          onEnd: (evt) => {
+            if (evt.oldIndex !== evt.newIndex && evt.oldIndex != null && evt.newIndex != null) {
+              const movedItem = this.favorites.splice(evt.oldIndex, 1)[0];
+              this.favorites.splice(evt.newIndex, 0, movedItem);
+              this.saveFavorites();
+              this.openFavDrawer();
+              this.showToast('已更新我的最愛排序');
+            }
+          }
+        });
+      }
     }
     this.elFavDrawer.classList.remove('hidden');
   }
@@ -898,6 +925,7 @@ class LynnMobilePlayer {
               <div class="list-item-artist">${s.artist}</div>
             </div>
             <button class="list-item-del" title="移出歌單"><i class="fa-solid fa-xmark"></i></button>
+            <div class="drag-handle" title="按住拖曳調整順序"><i class="fa-solid fa-grip-vertical"></i></div>
           `;
 
           // 核心功能：自訂歌單點選播放哪一首歌，並自動將該歌單後續歌曲排入即將播放清單
@@ -930,6 +958,26 @@ class LynnMobilePlayer {
 
           songsList.appendChild(sItem);
         });
+
+        if (typeof Sortable !== 'undefined' && songs.length > 0) {
+          new Sortable(songsList, {
+            handle: '.drag-handle',
+            animation: 180,
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            touchStartThreshold: 4,
+            onEnd: (evt) => {
+              if (evt.oldIndex !== evt.newIndex && evt.oldIndex != null && evt.newIndex != null) {
+                const movedItem = songs.splice(evt.oldIndex, 1)[0];
+                songs.splice(evt.newIndex, 0, movedItem);
+                this.saveCustomPlaylists();
+                this.renderPlaylistsDrawer();
+                this.showToast(`已更新「${name}」歌曲順序`);
+              }
+            }
+          });
+        }
       }
 
       this.elPlaylistsList.appendChild(card);
@@ -965,6 +1013,7 @@ class LynnMobilePlayer {
           <div class="list-item-artist">${song.artist}</div>
         </div>
         <button class="list-item-del" title="移出佇列"><i class="fa-solid fa-xmark"></i></button>
+        <div class="drag-handle" title="按住拖曳調整播放順序"><i class="fa-solid fa-grip-vertical"></i></div>
       `;
 
       const playQueueSong = () => {
@@ -990,6 +1039,29 @@ class LynnMobilePlayer {
 
       this.elQueueList.appendChild(item);
     });
+
+    if (typeof Sortable !== 'undefined' && this.queue.length > 0) {
+      if (this.queueSortable) {
+        this.queueSortable.destroy();
+        this.queueSortable = null;
+      }
+      this.queueSortable = new Sortable(this.elQueueList, {
+        handle: '.drag-handle',
+        animation: 180,
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        dragClass: 'sortable-drag',
+        touchStartThreshold: 4,
+        onEnd: (evt) => {
+          if (evt.oldIndex !== evt.newIndex && evt.oldIndex != null && evt.newIndex != null) {
+            const movedItem = this.queue.splice(evt.oldIndex, 1)[0];
+            this.queue.splice(evt.newIndex, 0, movedItem);
+            this.renderQueueUI();
+            this.showToast('已更新播放順序');
+          }
+        }
+      });
+    }
   }
 
   async regenerateRandomQueue() {

@@ -595,6 +595,50 @@ body {
   background: rgba(255, 82, 82, 0.12);
 }
 
+/* 拖曳手柄與排序視覺效果 */
+.drag-handle {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 13px;
+  cursor: grab;
+  cursor: -webkit-grab;
+  padding: 6px 8px;
+  margin-left: 2px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.drag-handle:hover, .drag-handle:active {
+  color: var(--accent);
+  background: rgba(0, 229, 255, 0.12);
+  cursor: grabbing;
+  cursor: -webkit-grabbing;
+}
+
+.list-item.sortable-ghost {
+  opacity: 0.35;
+  background: rgba(0, 229, 255, 0.15) !important;
+  border: 1px dashed var(--accent) !important;
+}
+
+.list-item.sortable-chosen {
+  background: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+
+.list-item.sortable-drag {
+  opacity: 0.95;
+  cursor: grabbing !important;
+}
+
 /* Toast */
 .toast {
   position: absolute;
