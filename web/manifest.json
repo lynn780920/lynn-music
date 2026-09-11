@@ -3,7 +3,7 @@
   "short_name": "Lynn's Music",
   "description": "Lynn's 專屬雲端音樂播放器：動態歌詞、自訂歌單、隨機電台",
   "start_url": "/",
-  "display": "standalone",
+  "display": "browser",
   "background_color": "#121212",
   "theme_color": "#121212",
   "orientation": "portrait",
